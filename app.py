@@ -92,11 +92,15 @@ if ticker:
 
         st.divider()
 
-        # ── 4. QUANTITATIVA ──────────────────────────────────────────────────
+       # ── 4. QUANTITATIVA ──────────────────────────────────────────────────
         st.header("4. Quantitativa")
 
-        # 4.1 Evolução Histórica (Gráficos com Alpha Vantage)
-        st.subheader("4.1 Evolução: Receita, Lucro, EBITDA e Cash Flow ($B)")
+        # 4.1 Evolução Histórica
+        st.subheader("4.1 Evolução: Financeira e Acionária")
+
+        # Criamos o esqueleto das 4 colunas (2 linhas x 2 colunas) antecipadamente
+        col_g1, col_g2 = st.columns(2)
+        col_g3, col_g4 = st.columns(2)
 
         if av_api_key:
             try:
@@ -129,7 +133,6 @@ if ticker:
                     ttm_cfo = info.get("operatingCashflow", 0) / 1e9
                     ttm_fcf = info.get("freeCashflow", 0) / 1e9
 
-                    col_g1, col_g2 = st.columns(2)
                     with col_g1:
                         fig_res = go.Figure()
                         fig_res.add_trace(go.Bar(x=anos_fin, y=rev_hist, name='Receita', marker_color='#1f77b4'))
@@ -146,7 +149,6 @@ if ticker:
                         fig_ebitda.update_layout(title="EBITDA", template='plotly_dark', height=400, margin=dict(t=50, b=20))
                         st.plotly_chart(fig_ebitda, use_container_width=True)
 
-                    col_g3, col_g4 = st.columns(2)
                     with col_g3:
                         fig_cf = go.Figure()
                         fig_cf.add_trace(go.Bar(x=anos_cf, y=cfo_hist, name='CFO', marker_color='#1f77b4'))
@@ -166,22 +168,23 @@ if ticker:
         else:
             st.info("👈 Por favor, insere a tua API Key do Alpha Vantage na barra lateral para carregar os gráficos históricos.")
 
-        # --- NOVO: GRÁFICO DAS AÇÕES EM CIRCULAÇÃO ---
-        st.subheader("4.1.2 Evolução das Ações em Circulação (Diluição vs Buybacks)")
-        try:
-            if 'Ordinary Shares Number' in bs.index:
-                shares_series = bs.loc['Ordinary Shares Number'].dropna().sort_index(ascending=True)
-                anos_shares = shares_series.index.year.astype(str)
-                val_shares = shares_series.values / 1e6 # Passar para milhões
+        # O gráfico das Ações em Circulação entra diretamente na col_g4
+        with col_g4:
+            try:
+                if 'Ordinary Shares Number' in bs.index:
+                    shares_series = bs.loc['Ordinary Shares Number'].dropna().sort_index(ascending=True)
+                    anos_shares = shares_series.index.year.astype(str)
+                    val_shares = shares_series.values / 1e6 # Passar para milhões
 
-                fig_shares = go.Figure()
-                fig_shares.add_trace(go.Bar(x=anos_shares, y=val_shares, marker_color='#8E44AD', name='Shares'))
-                fig_shares.update_layout(title="Ordinary Shares Number (Milhões)", template='plotly_dark', height=350, margin=dict(t=50, b=20))
-                st.plotly_chart(fig_shares, use_container_width=True)
-            else:
-                st.info("Não foi possível encontrar o histórico de 'Ordinary Shares Number' para esta empresa.")
-        except Exception as e:
-            st.warning(f"Erro ao desenhar o gráfico de ações: {e}")
+                    fig_shares = go.Figure()
+                    fig_shares.add_trace(go.Bar(x=anos_shares, y=val_shares, marker_color='#8E44AD', name='Shares'))
+                    # Alterado para height=400 para emparelhar em altura com o gráfico CFO vs FCF ao lado
+                    fig_shares.update_layout(title="Ordinary Shares Number (Milhões)", template='plotly_dark', height=400, margin=dict(t=50, b=20))
+                    st.plotly_chart(fig_shares, use_container_width=True)
+                else:
+                    st.info("Não foi possível encontrar o histórico de 'Ordinary Shares Number' para esta empresa.")
+            except Exception as e:
+                st.warning(f"Erro ao desenhar o gráfico de ações: {e}")
 
         st.divider()
 
