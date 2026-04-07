@@ -209,4 +209,163 @@ if ticker:
             if cogs > 0 and revenue > 0:
                 dio = (inventory / cogs) * 365
                 dso = (receivables / revenue) * 365
-                dpo = (
+                dpo = (payables / cogs) * 365
+                ccc = dio + dso - dpo
+                col4.metric("Cash Conv. Cycle (CCC)", f"{int(ccc)} dias")
+            else:
+                col4.metric("Cash Conv. Cycle (CCC)", "N/D")
+        except:
+            col4.metric("Cash Conv. Cycle (CCC)", "N/D")
+
+        # 4.3 Performance
+        st.subheader("4.3 Métricas de Performance")
+        col1, col2, col3, col4, col5 = st.columns(5)
+
+        mg = info.get("grossMargins", None)
+        col1.metric("Margem Bruta", f"{mg*100:.1f}%" if mg else "N/D")
+
+        mo = info.get("operatingMargins", None)
+        col2.metric("Margem Operacional", f"{mo*100:.1f}%" if mo else "N/D")
+
+        mn = info.get("profitMargins", None)
+        col3.metric("Margem Líquida", f"{mn*100:.1f}%" if mn else "N/D")
+
+        roe = info.get("returnOnEquity", None)
+        col4.metric("ROE", f"{roe*100:.1f}%" if roe else "N/D")
+
+        # --- NOVO: CÁLCULO MANUAL DO ROIC (SUBSTITUI O ROA) ---
+        try:
+            ebit = fin.loc['EBIT'].iloc
+            tax_provision = fin.loc['Tax Provision'].iloc if 'Tax Provision' in fin.index else 0
+            pretax_income = fin.loc['Pretax Income'].iloc if 'Pretax Income' in fin.index else ebit
+            
+            tax_rate = tax_provision / pretax_income if pretax_income > 0 else 0.21
+            nopat = ebit * (1 - tax_rate)
+            
+            total_assets = bs.loc['Total Assets'].iloc
+            current_liab = bs.loc['Current Liabilities'].iloc if 'Current Liabilities' in bs.index else 0
+            invested_capital = total_assets - current_liab
+            
+            roic_val = (nopat / invested_capital) * 100
+            col5.metric("ROIC", f"{roic_val:.1f}%")
+        except:
+            col5.metric("ROIC", "N/D")
+
+        # 4.4 Saúde Financeira
+        st.subheader("4.4 Saúde Financeira")
+        col1, col2, col3, col4 = st.columns(4)
+
+        divida = info.get("totalDebt", None)
+        ebitda_val = info.get("ebitda", None)
+        if divida and ebitda_val and ebitda_val != 0:
+            debt_ebitda = divida / ebitda_val
+            col1.metric("DEBT / EBITDA", f"{debt_ebitda:.1f}x")
+        else:
+            col1.metric("DEBT / EBITDA", "N/D")
+
+        # --- NOVO: CÁLCULO MANUAL DO INTEREST COVERAGE RATIO ---
+        try:
+            ebit_val = fin.loc['EBIT'].iloc
+            interest_exp = abs(fin.loc['Interest Expense'].iloc) if 'Interest Expense' in fin.index else 0
+            
+            if interest_exp > 0:
+                icr_val = ebit_val / interest_exp
+                col2.metric("Interest Coverage Ratio", f"{icr_val:.1f}x")
+            else:
+                col2.metric("Interest Coverage Ratio", "Seguro (S/ Despesa)")
+        except:
+            col2.metric("Interest Coverage Ratio", "N/D")
+
+        cr = info.get("currentRatio", None)
+        col3.metric("Current Ratio", f"{cr:.2f}" if cr else "N/D")
+
+        fcf = info.get("freeCashflow", None)
+        if divida and fcf and fcf != 0:
+            debt_fcf = divida / fcf
+            col4.metric("Total DEBT / FCF", f"{debt_fcf:.1f}x")
+        else:
+            col4.metric("Total DEBT / FCF", "N/D")
+
+        # 4.5 Alavancagem
+        st.subheader("4.5 Alavancagem Financeira")
+        col1, col2 = st.columns(2)
+
+        de = info.get("debtToEquity", None)
+        col1.metric("DEBT / EQUITY", f"{de:.1f}" if de else "N/D")
+
+        col2.metric("Dívida Total", f"${divida/1e9:.1f}B" if divida else "N/D")
+
+        # 4.6 Dividendos
+        st.subheader("4.6 Dividendos")
+        col1, col2, col3 = st.columns(3)
+
+        div_yield = info.get("dividendYield", None)
+        col1.metric("Dividend Yield", f"{div_yield*100:.2f}%" if div_yield else "N/D")
+
+        payout = info.get("payoutRatio", None)
+        col2.metric("Payout Ratio", f"{payout*100:.1f}%" if payout else "N/D")
+
+        shares = info.get("sharesOutstanding", None)
+        col3.metric("Ações em Circulação Atual", f"{shares/1e9:.2f}B" if shares else "N/D")
+
+        # 4.7 Valuation
+        st.subheader("4.7 Valuation")
+        col1, col2, col3, col4 = st.columns(4)
+
+        pe = info.get("trailingPE", None)
+        col1.metric("P/E Ratio", f"{pe:.1f}" if pe else "N/D")
+
+        ps = info.get("priceToSalesTrailing12Months", None)
+        col2.metric("P/S Ratio", f"{ps:.1f}" if ps else "N/D")
+
+        pb = info.get("priceToBook", None)
+        col3.metric("P/B Ratio", f"{pb:.1f}" if pb else "N/D")
+
+        ev_ebitda = info.get("enterpriseToEbitda", None)
+        col4.metric("EV/EBITDA", f"{ev_ebitda:.1f}" if ev_ebitda else "N/D")
+
+        st.divider()
+
+        # ── 5. VALOR INTRÍNSECO ──────────────────────────────────────────────
+        st.header("5. Valor Intrínseco")
+        col1, col2, col3 = st.columns(3)
+
+        preco_atual = info.get("currentPrice", None)
+        col1.metric("Preço Atual", f"${preco_atual:.2f}" if preco_atual else "N/D")
+
+        eps = info.get("trailingEps", None)
+        col2.metric("EPS (normalizado)", f"${eps:.2f}" if eps else "N/D")
+
+        peg = info.get("pegRatio", None)
+        col3.metric("PEG Ratio", f"{peg:.2f}" if peg else "N/D")
+
+        col1, col2 = st.columns(2)
+        with col1:
+            valor_intriseco = st.number_input("Valor Intrínseco Estimado ($)", min_value=0.0, step=0.5)
+        with col2:
+            if valor_intriseco > 0 and preco_atual:
+                margem = ((valor_intriseco - preco_atual) / valor_intriseco) * 100
+                col2.metric("Margem de Segurança", f"{margem:.1f}%",
+                           delta="Subvalorizada" if margem > 0 else "Sobrevalorizada")
+
+        st.divider()
+
+        # ── 6. CONCLUSÃO FINAL ───────────────────────────────────────────────
+        st.header("6. Conclusão Final")
+
+        col1, col2 = st.columns(2)
+        with col1:
+            data_analise = st.date_input("Data da análise")
+            motivo_compra = st.text_area("Motivo principal da compra:")
+            periodo = st.selectbox("Período de investimento", ["Curto prazo (<1 ano)", "Médio prazo (1-3 anos)", "Longo prazo (>3 anos)"])
+        with col2:
+            criterios = st.text_area("Critérios que devem manter-se:")
+            quando_vendo = st.text_area("Quando é que vendo?")
+            decisao = st.selectbox("Decisão final", ["✅ Comprar", "⏳ Aguardar", "❌ Não comprar"])
+
+        if decisao == "✅ Comprar":
+            st.success(f"Decisão: COMPRAR {ticker.upper()}")
+        elif decisao == "⏳ Aguardar":
+            st.warning(f"Decisão: AGUARDAR — monitorizar {ticker.upper()}")
+        else:
+            st.error(f"Decisão: NÃO COMPRAR {ticker.upper()}")
