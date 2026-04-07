@@ -99,11 +99,11 @@ if ticker:
                         
             fig_ebitda = go.Figure()
             # Histórico
-            fig_ebitda.add_trace(go.Bar(x=anos, y=ebitda_hist, name='EBITDA', marker_color='#00CC96')) # Verde Esmeralda
+            fig_ebitda.add_trace(go.Bar(x=anos, y=df_fin['ebitda']/1e9, name='EBITDA', marker_color='#00CC96')) # Verde Esmeralda
             # TTM
             fig_ebitda.add_trace(go.Bar(x=['TTM'], y=[ttm_ebitda], name='EBITDA (TTM)', marker_color='#00CC96', opacity=0.6, showlegend=False))
             
-            fig_ebitda.update_layout(title="Evolução EBITDA", template='plotly_dark', height=400, margin=dict(t=50, b=20))
+            fig_ebitda.update_layout(title="EBITDA", template='plotly_dark', height=400, margin=dict(t=50, b=20))
             st.plotly_chart(fig_ebitda, use_container_width=True)
 
     except Exception as e:
