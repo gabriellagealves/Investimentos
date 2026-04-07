@@ -186,7 +186,7 @@ if ticker:
                         text=[f"{v:.0f}" for v in val_shares], textposition='auto'
                     ))
                     fig_shares.update_layout(
-                        title="Ordinary Shares Number", template='plotly_dark', height=400, margin=dict(t=50, b=20),
+                        title="Ordinary Shares Number (Numero de ações ordinárias)", template='plotly_dark', height=400, margin=dict(t=50, b=20),
                         yaxis_title="Milhões (M)"
                     )
                     fig_shares.update_yaxes(range=[min_y, max_y]) # Aplica a escala para evidenciar mudanças
@@ -262,7 +262,7 @@ if ticker:
         except:
             col5.metric("ROIC", "N/D")
 
-        # --- NOVO: GRÁFICO HISTÓRICO DE MARGENS ---
+        # --- GRÁFICO DAS MARGENS ---
         try:
             # Ordenar da data mais antiga para a mais recente
             df_fin_t = fin.T.sort_index(ascending=True)
