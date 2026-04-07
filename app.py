@@ -74,10 +74,10 @@ if ticker:
         df_fin = acao.financials.T.sort_index(ascending=True)
         df_cf = acao.cashflow.T.sort_index(ascending=True)
         
-        # Alinhando os anos (índice como string para evitar meses no gráfico)
+        # Criamos o índice de anos (ex: 2021, 2022...)
         anos = df_fin.index.year.astype(str)
 
-        # Dados TTM do 'info'
+        # Dados TTM extraídos do 'info'
         ttm_label = ['TTM']
         ttm_rev = [info.get("totalRevenue", 0) / 1e9]
         ttm_net = [info.get("netIncomeToCommon", 0) / 1e9]
@@ -89,31 +89,34 @@ if ticker:
         fig1 = go.Figure()
         fig1.add_trace(go.Bar(x=anos, y=df_fin['Total Revenue']/1e9, name='Receita', marker_color='#1f77b4'))
         fig1.add_trace(go.Bar(x=anos, y=df_fin['Net Income']/1e9, name='Lucro Líquido', marker_color='#FFD700'))
-        # Adicionar TTM
-        fig1.add_trace(go.Bar(x=ttm_label, y=ttm_rev, name='Receita (TTM)', marker_color='#1f77b4', opacity=0.7, showlegend=False))
-        fig1.add_trace(go.Bar(x=ttm_label, y=ttm_net, name='Lucro (TTM)', marker_color='#FFD700', opacity=0.7, showlegend=False))
-        
-        fig1.update_layout(title="Receita vs Lucro Líquido ($B)", barmode='group', template='plotly_dark', height=350, margin=dict(t=30, b=10))
+        # TTM
+        fig1.add_trace(go.Bar(x=ttm_label, y=ttm_rev, name='Receita (TTM)', marker_color='#1f77b4', opacity=0.6, showlegend=False))
+        fig1.add_trace(go.Bar(x=ttm_label, y=ttm_net, name='Lucro (TTM)', marker_color='#FFD700', opacity=0.6, showlegend=False))
+        fig1.update_layout(title="Receita vs Lucro Líquido ($B)", barmode='group', template='plotly_dark', height=350)
 
         # --- GRÁFICO 2: CFO VS FCF ---
         fig2 = go.Figure()
-        fig2.add_trace(go.Bar(x=anos, y=df_cf['Operating Cash Flow']/1e9, name='CFO', marker_color='#1f77b4'))
-        fig2.add_trace(go.Bar(x=anos, y=df_cf['Free Cash Flow']/1e9, name='FCF', marker_color='#FFD700'))
-        # Adicionar TTM
-        fig2.add_trace(go.Bar(x=ttm_label, y=ttm_cfo, name='CFO (TTM)', marker_color='#1f77b4', opacity=0.7, showlegend=False))
-        fig2.add_trace(go.Bar(x=ttm_label, y=ttm_fcf, name='FCF (TTM)', marker_color='#FFD700', opacity=0.7, showlegend=False))
+        # Verificação de segurança para colunas de fluxo de caixa
+        cfo_hist = df_cf['Operating Cash Flow']/1e9 if 'Operating Cash Flow' in df_cf.columns else * len(anos)
+        fcf_hist = df_cf['Free Cash Flow']/1e9 if 'Free Cash Flow' in df_cf.columns else * len(anos)
         
-        fig2.update_layout(title="CFO vs Free Cash Flow ($B)", barmode='group', template='plotly_dark', height=350, margin=dict(t=30, b=10))
+        fig2.add_trace(go.Bar(x=anos, y=cfo_hist, name='CFO', marker_color='#1f77b4'))
+        fig2.add_trace(go.Bar(x=anos, y=fcf_hist, name='FCF', marker_color='#FFD700'))
+        # TTM
+        fig2.add_trace(go.Bar(x=ttm_label, y=ttm_cfo, name='CFO (TTM)', marker_color='#1f77b4', opacity=0.6, showlegend=False))
+        fig2.add_trace(go.Bar(x=ttm_label, y=ttm_fcf, name='FCF (TTM)', marker_color='#FFD700', opacity=0.6, showlegend=False))
+        fig2.update_layout(title="CFO vs Free Cash Flow ($B)", barmode='group', template='plotly_dark', height=350)
 
         # --- GRÁFICO 3: EBITDA ---
         fig3 = go.Figure()
-        ebitda_hist = df_fin['EBITDA'] / 1e9 if 'EBITDA' in df_fin.columns else
-        fig3.add_trace(go.Bar(x=anos, y=ebitda_hist, name='EBITDA', marker_color='#00CC96'))
-        fig3.add_trace(go.Bar(x=ttm_label, y=ttm_ebitda, name='EBITDA (TTM)', marker_color='#00CC96', opacity=0.7, showlegend=False))
+        # RESOLUÇÃO DO ERRO: Adicionado o fallback * len(anos)
+        ebitda_hist = df_fin['EBITDA'] / 1e9 if 'EBITDA' in df_fin.columns else * len(anos)
         
-        fig3.update_layout(title="EBITDA ($B)", template='plotly_dark', height=350, margin=dict(t=30, b=10))
+        fig3.add_trace(go.Bar(x=anos, y=ebitda_hist, name='EBITDA', marker_color='#00CC96'))
+        fig3.add_trace(go.Bar(x=ttm_label, y=ttm_ebitda, name='EBITDA (TTM)', marker_color='#00CC96', opacity=0.6, showlegend=False))
+        fig3.update_layout(title="EBITDA ($B)", template='plotly_dark', height=350)
 
-        # Exibir gráficos em colunas ou sequência
+        # Exibição
         st.plotly_chart(fig1, use_container_width=True)
         col_g1, col_g2 = st.columns(2)
         with col_g1:
@@ -122,9 +125,9 @@ if ticker:
             st.plotly_chart(fig3, use_container_width=True)
 
     except Exception as e:
-        st.warning(f"Erro ao carregar gráficos históricos: {e}")
+        st.error(f"Erro ao processar gráficos: {e}")
 
-    st.divider()
+        st.divider()
     
     # --- MÉTRICAS DE RESUMO (O que tinhas antes + CCR) ---
     st.subheader("Métricas Atuais e Crescimento")
