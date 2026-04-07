@@ -7,6 +7,18 @@ import time
 
 st.set_page_config(page_title="Análise de Ações", layout="wide")
 
+# --- TRUQUE VISUAL: FORÇAR MAIÚSCULAS APENAS NO TICKER ---
+st.markdown(
+    """
+    <style>
+    input[aria-label="Ticker da ação (ex: AAPL, MSFT, NVDA, AMD)"] {
+        text-transform: uppercase;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 # --- TRUQUE DE MESTRE: CACHE ---
 @st.cache_data(ttl=3600)
 def obter_dados_alpha_vantage(ticker_symbol, api_key):
@@ -30,7 +42,7 @@ if st.sidebar.button("Limpar Memória (Cache)"):
 
 st.title("Análise de Ações")
 
-ticker = st.text_input("Ticker da ação (ex: AAPL, MSFT, NVDA, AMD)").upper()
+ticker = st.text_input("Ticker da ação (ex: AAPL, MSFT, NVDA, AMD)")
 
 if ticker:
     with st.spinner('A processar dados...'):
