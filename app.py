@@ -114,15 +114,15 @@ if ticker:
             st.plotly_chart(fig_ebitda, use_container_width=True)
 
         # 3. Criar a segunda linha de gráficos
-        col_g3 = st.columns(2)
+        col_g3 = st.columns(1)
         
         with col_g3:
             # --- GRÁFICO 3: CFO VS FCF ---
             ttm_cfo = info.get("operatingCashflow", 0) / 1e9
             ttm_fcf = info.get("freeCashflow", 0) / 1e9
 
-            cfo_hist = df_fin['operatingCashflow'] / 1e9
-            fcf_hist = df_fin['freeCashflow'] / 1e9
+            cfo_hist = df_cf['operatingCashflow'] / 1e9
+            fcf_hist = df_cf['freeCashflow'] / 1e9
               
             fig_cf = go.Figure()
             # Histórico
