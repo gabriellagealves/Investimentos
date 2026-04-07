@@ -61,13 +61,27 @@ if ticker:
 
         # ── 1. MACRO E SETORIAL ──────────────────────────────────────────────
         st.header("1. Macro e Setorial")
-        col1, col2, col3 = st.columns(3)
+        
+        # Criamos 5 colunas para manter tudo na mesma linha
+        col1, col2, col3, col4, col5 = st.columns(5)
+        
         with col1:
-            tendencia = st.selectbox("Tendência do índice", ["Seleção", "Bull", "Bear", "Lateral"])
+            st.write("Tendência do índice")
+            tendencia = st.selectbox("Qual a tendência do mercado/índice?", ["Preencher", "Bull", "Bear", "Lateral"])
+        
         with col2:
-            sentimento = st.selectbox("Sentimento Mundial", ["Seleção", "Bull", "Bear", "Lateral"])
+            st.write("Sentimento Mundial")
+            sentimento = st.selectbox("Qual é a saúde económica global?", ["Preencher", "Bull", "Bear", "Lateral"])
+            
         with col3:
-            pais = st.text_input("País", value=info.get("country", ""))
+            st.write("País")
+            sit_pais = st.selectbox("Situação económica do país/região?", ["Preencher", "Expansão", "Pico/ Auge", "Recessão", "Recuperação"])
+            
+        with col4:
+            estabilidade = st.selectbox("É estável, transparente e estimulada?", ["Preencher", "Sim", "Não"])
+            
+        with col5:
+            pib_emprego = st.selectbox("PIB e mercado de trabalho?", ["Preencher", "Bom", "Moderado", "Mau"])
 
         st.divider()
 
