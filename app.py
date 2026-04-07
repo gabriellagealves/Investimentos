@@ -102,8 +102,6 @@ if ticker:
                 ebitda_hist = df_fin['EBITDA'] / 1e9
             elif 'Normalized EBITDA' in df_fin.columns:
                 ebitda_hist = df_fin['Normalized EBITDA'] / 1e9
-            else:
-                ebitda_hist = * len(anos) # Fallback para não quebrar o código
                         
             fig_ebitda = go.Figure()
             # Histórico
