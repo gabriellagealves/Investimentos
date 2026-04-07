@@ -3,6 +3,7 @@ import yfinance as yf
 import pandas as pd
 import plotly.graph_objects as go
 import requests
+import time  # <--- NOVA BIBLIOTECA PARA O CÓDIGO "RESPIRAR"
 
 st.set_page_config(page_title="Análise de Ações", layout="wide")
 
@@ -10,9 +11,14 @@ st.set_page_config(page_title="Análise de Ações", layout="wide")
 # Guarda os dados na memória durante 1 hora (3600 segundos) para não esgotar as tuas 25 pesquisas diárias!
 @st.cache_data(ttl=3600)
 def obter_dados_alpha_vantage(ticker_symbol, api_key):
+    # 1º Pedido: Demonstração de Resultados
     url_is = f"https://www.alphavantage.co/query?function=INCOME_STATEMENT&symbol={ticker_symbol}&apikey={api_key}"
     res_is = requests.get(url_is).json()
     
+    # Pausa de 2 segundos para não chatear o Alpha Vantage (limite de 1 pedido por segundo)
+    time.sleep(2)
+    
+    # 2º Pedido: Fluxo de Caixa
     url_cf = f"https://www.alphavantage.co/query?function=CASH_FLOW&symbol={ticker_symbol}&apikey={api_key}"
     res_cf = requests.get(url_cf).json()
     
@@ -160,9 +166,9 @@ if ticker:
             else:
                 # Mostrar EXATAMENTE qual foi a tabela que falhou
                 if "annualReports" not in is_data:
-                    st.warning(f"O Alpha Vantage bloqueou o pedido de Receitas: {is_data.get('Information', is_data)}")
+                    st.warning(f"O Alpha Vantage bloqueou o pedido de Receitas: {is_data.get('Information', is_data.get('Note', is_data))}")
                 elif "annualReports" not in cf_data:
-                    st.warning(f"O Alpha Vantage bloqueou o pedido de Cash Flow: {cf_data.get('Information', cf_data)}")
+                    st.warning(f"O Alpha Vantage bloqueou o pedido de Cash Flow: {cf_data.get('Information', cf_data.get('Note', cf_data))}")
 
         except Exception as e:
             st.error(f"Erro ao processar dados da API Alpha Vantage: {e}")
