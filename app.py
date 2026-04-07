@@ -121,8 +121,8 @@ if ticker:
             ttm_cfo = info.get("operatingCashflow", 0) / 1e9
             ttm_fcf = info.get("freeCashflow", 0) / 1e9
 
-            cfo_hist = df_cf['operatingCashflow'] / 1e9
-            fcf_hist = df_cf['freeCashflow'] / 1e9
+            cfo_hist = df_cf['Operating Cash Flow'] / 1e9
+            fcf_hist = df_cf['Free Cash Flow'] / 1e9
               
             fig_cf = go.Figure()
             # Histórico
@@ -132,7 +132,7 @@ if ticker:
             fig_cf.add_trace(go.Bar(x=['TTM'], y=[ttm_cfo], name='CFO (TTM)', marker_color='#1f77b4', opacity=0.6, showlegend=False))
             fig_cf.add_trace(go.Bar(x=['TTM'], y=[ttm_fcf], name='FCF (TTM)', marker_color='#FFD700', opacity=0.6, showlegend=False))
             
-            fig_cf.update_layout(title="CFO vs Free Cash Flow (FCF)", barmode='group', template='plotly_dark', height=400, margin=dict(t=50, b=20))
+            fig_cf.update_layout(title="Cash From Operations vs Free Cash Flow (FCF)", barmode='group', template='plotly_dark', height=400, margin=dict(t=50, b=20))
             st.plotly_chart(fig_cf, use_container_width=True)
 
     except Exception as e:
