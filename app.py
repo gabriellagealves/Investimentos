@@ -8,8 +8,8 @@ st.set_page_config(page_title="Análise de Ações", layout="wide")
 
 # --- BARRA LATERAL PARA A API KEY ---
 st.sidebar.header("Configurações")
-fmp_api_key = st.sidebar.text_input("API Key do FMP", type="password", help="Cria uma conta gratuita em financialmodelingprep.com para obter a chave.")
-st.sidebar.markdown("*(A chave é necessária apenas para os gráficos históricos de 5 anos)*")
+av_api_key = st.sidebar.text_input("API Key do Alpha Vantage", type="password", help="Obtém a tua chave gratuita em alphavantage.co")
+st.sidebar.markdown("*(Limite da versão gratuita: 25 pesquisas por dia)*")
 
 st.title("Análise de Ações")
 
@@ -73,35 +73,43 @@ if ticker:
     # ── 4. QUANTITATIVA ──────────────────────────────────────────────────
     st.header("4. Quantitativa")
 
-    # 4.1 Evolução Histórica (Gráficos com FMP API)
+    # 4.1 Evolução Histórica (Gráficos com Alpha Vantage)
     st.subheader("4.1 Evolução: Receita, Lucro, EBITDA e Cash Flow ($B)")
 
-    if fmp_api_key:
+    if av_api_key:
         try:
-            # 1. Obter Dados via Financial Modeling Prep (FMP)
-            # DRE (Income Statement) - Últimos 5 anos
-            url_is = f"https://financialmodelingprep.com/api/v3/income-statement/{ticker}?limit=5&apikey={fmp_api_key}"
+            # 1. Obter Dados via Alpha Vantage API
+            url_is = f"https://www.alphavantage.co/query?function=INCOME_STATEMENT&symbol={ticker}&apikey={av_api_key}"
             is_data = requests.get(url_is).json()
             
-            # Fluxo de Caixa (Cash Flow) - Últimos 5 anos
-            url_cf = f"https://financialmodelingprep.com/api/v3/cash-flow-statement/{ticker}?limit=5&apikey={fmp_api_key}"
+            url_cf = f"https://www.alphavantage.co/query?function=CASH_FLOW&symbol={ticker}&apikey={av_api_key}"
             cf_data = requests.get(url_cf).json()
 
-            if isinstance(is_data, list) and len(is_data) > 0 and isinstance(cf_data, list) and len(cf_data) > 0:
-                # Converter para Pandas e ordenar do mais antigo para o mais recente (ascending)
-                df_is = pd.DataFrame(is_data).sort_values('date')
-                df_cf = pd.DataFrame(cf_data).sort_values('date')
+            # Verificar se os dados chegaram com a chave 'annualReports'
+            if "annualReports" in is_data and "annualReports" in cf_data:
+                
+                # Pegar os últimos 5 anos e converter para DataFrame
+                df_is = pd.DataFrame(is_data["annualReports"][:5])
+                df_cf = pd.DataFrame(cf_data["annualReports"][:5])
 
-                # Anos para o eixo X
-                anos_fin = df_is['calendarYear'].astype(str)
-                anos_cf = df_cf['calendarYear'].astype(str)
+                # O Alpha Vantage traz as datas do mais recente para o mais antigo. Vamos inverter (ascending)
+                df_is['fiscalDateEnding'] = pd.to_datetime(df_is['fiscalDateEnding'])
+                df_is = df_is.sort_values('fiscalDateEnding')
+                
+                df_cf['fiscalDateEnding'] = pd.to_datetime(df_cf['fiscalDateEnding'])
+                df_cf = df_cf.sort_values('fiscalDateEnding')
 
-                # Extração das métricas (FMP já devolve os nomes certos sempre)
-                rev_hist = df_is['revenue'] / 1e9
-                net_hist = df_is['netIncome'] / 1e9
-                ebitda_hist = df_is['ebitda'] / 1e9
-                cfo_hist = df_cf['operatingCashFlow'] / 1e9
-                fcf_hist = df_cf['freeCashFlow'] / 1e9
+                anos_fin = df_is['fiscalDateEnding'].dt.year.astype(str)
+                anos_cf = df_cf['fiscalDateEnding'].dt.year.astype(str)
+
+                # O Alpha Vantage traz os números como texto (string). Precisamos converter para números.
+                rev_hist = pd.to_numeric(df_is['totalRevenue'], errors='coerce').fillna(0) / 1e9
+                net_hist = pd.to_numeric(df_is['netIncome'], errors='coerce').fillna(0) / 1e9
+                ebitda_hist = pd.to_numeric(df_is['ebitda'], errors='coerce').fillna(0) / 1e9
+
+                cfo_hist = pd.to_numeric(df_cf['operatingCashflow'], errors='coerce').fillna(0) / 1e9
+                capex_hist = pd.to_numeric(df_cf['capitalExpenditures'], errors='coerce').fillna(0) / 1e9
+                fcf_hist = cfo_hist - capex_hist # Cálculo manual do Free Cash Flow
 
                 # TTM do yfinance (tempo real)
                 ttm_rev = info.get("totalRevenue", 0) / 1e9
@@ -110,7 +118,7 @@ if ticker:
                 ttm_cfo = info.get("operatingCashflow", 0) / 1e9
                 ttm_fcf = info.get("freeCashflow", 0) / 1e9
 
-                # 2. Primeira linha de gráficos (Receita/Lucro e EBITDA)
+                # 2. Primeira linha de gráficos
                 col_g1, col_g2 = st.columns(2)
 
                 with col_g1:
@@ -129,7 +137,7 @@ if ticker:
                     fig_ebitda.update_layout(title="EBITDA", template='plotly_dark', height=400, margin=dict(t=50, b=20))
                     st.plotly_chart(fig_ebitda, use_container_width=True)
 
-                # 3. Segunda linha de gráficos (CFO vs FCF)
+                # 3. Segunda linha de gráficos
                 col_g3, col_g4 = st.columns(2)
                 
                 with col_g3:
@@ -141,12 +149,13 @@ if ticker:
                     fig_cf.update_layout(title="Cash From Operations vs Free Cash Flow (FCF)", barmode='group', template='plotly_dark', height=400, margin=dict(t=50, b=20))
                     st.plotly_chart(fig_cf, use_container_width=True)
             else:
-                st.warning("Dados não encontrados para este Ticker na FMP.")
+                # Se não houver a chave 'annualReports', mostramos o que a API devolveu (ex: Limite de uso atingido)
+                st.warning(f"Resposta do Alpha Vantage: {is_data}")
 
         except Exception as e:
-            st.error(f"Erro ao processar dados da API FMP: {e}")
+            st.error(f"Erro ao processar dados da API Alpha Vantage: {e}")
     else:
-        st.info("👈 Por favor, insere a tua API Key da Financial Modeling Prep na barra lateral para carregar os gráficos históricos.")
+        st.info("👈 Por favor, insere a tua API Key do Alpha Vantage na barra lateral para carregar os gráficos históricos.")
 
     st.divider()
 
