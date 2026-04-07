@@ -101,6 +101,8 @@ if ticker:
         col_g1, col_g2 = st.columns(2)
         col_g3, col_g4 = st.columns(2)
 
+        df_is = None # Inicializamos para usar na Secção das Margens mais à frente
+
         if av_api_key:
             try:
                 is_data, cf_data = obter_dados_alpha_vantage(ticker, av_api_key)
@@ -138,7 +140,9 @@ if ticker:
                         fig_res.add_trace(go.Bar(x=anos_fin, y=net_hist, name='Lucro Líquido', marker_color='#FFD700', text=net_hist.apply(lambda x: f"{x:.1f}"), textposition='auto'))
                         fig_res.add_trace(go.Bar(x=['TTM'], y=[ttm_rev], name='Receita (TTM)', marker_color='#1f77b4', opacity=0.6, showlegend=False, text=[f"{ttm_rev:.1f}"], textposition='auto'))
                         fig_res.add_trace(go.Bar(x=['TTM'], y=[ttm_net], name='Lucro (TTM)', marker_color='#FFD700', opacity=0.6, showlegend=False, text=[f"{ttm_net:.1f}"], textposition='auto'))
-                        fig_res.update_layout(title="Receita vs Lucro Líquido", barmode='group', template='plotly_dark', height=400, margin=dict(t=50, b=20), yaxis_title="Biliões de USD ($B)")
+                        
+                        # Gráfico 1: Barras mais grossas (bargap reduzido para 0.1)
+                        fig_res.update_layout(title="Receita vs Lucro Líquido", barmode='group', template='plotly_dark', height=400, margin=dict(t=50, b=20), yaxis_title="Biliões de USD ($B)", yaxis_title_font_size=16, bargap=0.1)
                         st.plotly_chart(fig_res, use_container_width=True)
 
                     with col_g2:
@@ -147,14 +151,18 @@ if ticker:
                         fig_cf.add_trace(go.Bar(x=anos_cf, y=fcf_hist, name='FCF', marker_color='#2EC4B6', text=fcf_hist.apply(lambda x: f"{x:.1f}"), textposition='auto'))
                         fig_cf.add_trace(go.Bar(x=['TTM'], y=[ttm_cfo], name='CFO (TTM)', marker_color='#FF9F1C', opacity=0.6, showlegend=False, text=[f"{ttm_cfo:.1f}"], textposition='auto'))
                         fig_cf.add_trace(go.Bar(x=['TTM'], y=[ttm_fcf], name='FCF (TTM)', marker_color='#2EC4B6', opacity=0.6, showlegend=False, text=[f"{ttm_fcf:.1f}"], textposition='auto'))
-                        fig_cf.update_layout(title="Cash From Operations (CFO) vs Free Cash Flow (FCF)", barmode='group', template='plotly_dark', height=400, margin=dict(t=50, b=20), yaxis_title="Biliões de USD ($B)")
+                        
+                        # Gráfico 2: Barras mais grossas (bargap reduzido para 0.1)
+                        fig_cf.update_layout(title="Cash From Operations (CFO) vs Free Cash Flow (FCF)", barmode='group', template='plotly_dark', height=400, margin=dict(t=50, b=20), yaxis_title="Biliões de USD ($B)", yaxis_title_font_size=16, bargap=0.1)
                         st.plotly_chart(fig_cf, use_container_width=True)
 
                     with col_g3:
                         fig_ebitda = go.Figure()
                         fig_ebitda.add_trace(go.Bar(x=anos_fin, y=ebitda_hist, name='EBITDA', marker_color='#00CC96', text=ebitda_hist.apply(lambda x: f"{x:.1f}"), textposition='auto')) 
                         fig_ebitda.add_trace(go.Bar(x=['TTM'], y=[ttm_ebitda], name='EBITDA (TTM)', marker_color='#00CC96', opacity=0.6, showlegend=False, text=[f"{ttm_ebitda:.1f}"], textposition='auto'))
-                        fig_ebitda.update_layout(title="EBITDA", template='plotly_dark', height=400, margin=dict(t=50, b=20), yaxis_title="Biliões de USD ($B)")
+                        
+                        # Gráfico 3: Barras metade da largura (bargap=0.6) e reduzido proporcionalmente (height=280)
+                        fig_ebitda.update_layout(title="EBITDA", template='plotly_dark', height=280, margin=dict(t=50, b=20), yaxis_title="Biliões de USD ($B)", yaxis_title_font_size=16, bargap=0.6)
                         st.plotly_chart(fig_ebitda, use_container_width=True)
 
                 else:
@@ -176,7 +184,6 @@ if ticker:
                     anos_shares = shares_series.index.year.astype(str)
                     val_shares = shares_series.values / 1e6 # Milhões
 
-                    # Calculando a margem para o zoom vertical dinâmico (2% de tolerância acima e abaixo)
                     min_y = min(val_shares) * 0.98 if len(val_shares) > 0 else 0
                     max_y = max(val_shares) * 1.02 if len(val_shares) > 0 else 100
 
@@ -185,11 +192,13 @@ if ticker:
                         x=anos_shares, y=val_shares, marker_color='#8E44AD', name='Shares',
                         text=[f"{v:.0f}" for v in val_shares], textposition='auto'
                     ))
+                    
+                    # Gráfico 4: Barras metade da largura (bargap=0.6) e reduzido proporcionalmente (height=280)
                     fig_shares.update_layout(
-                        title="Ordinary Shares Number (Numero de ações ordinárias)", template='plotly_dark', height=400, margin=dict(t=50, b=20),
-                        yaxis_title="Milhões (M)"
+                        title="Ordinary Shares Number", template='plotly_dark', height=280, margin=dict(t=50, b=20),
+                        yaxis_title="Milhões (M)", yaxis_title_font_size=16, bargap=0.6
                     )
-                    fig_shares.update_yaxes(range=[min_y, max_y]) # Aplica a escala para evidenciar mudanças
+                    fig_shares.update_yaxes(range=[min_y, max_y])
                     st.plotly_chart(fig_shares, use_container_width=True)
                 else:
                     st.info("Não foi possível encontrar o histórico de 'Ordinary Shares Number' para esta empresa.")
@@ -209,7 +218,7 @@ if ticker:
         crescimento_lucro = info.get("earningsGrowth", None)
         col2.metric("Crescimento Lucro (YoY)", f"{crescimento_lucro*100:.1f}%" if crescimento_lucro else "N/D")
 
-        # CÁLCULO MANUAL DO CCC
+        # CÁLCULO MANUAL DO CCC (Corrigido com)
         try:
             inventory = bs.loc['Inventory'].iloc if 'Inventory' in bs.index else 0
             cogs = abs(fin.loc['Cost Of Revenue'].iloc) if 'Cost Of Revenue' in fin.index else 0
@@ -244,7 +253,7 @@ if ticker:
         roe = info.get("returnOnEquity", None)
         col4.metric("ROE", f"{roe*100:.1f}%" if roe else "N/D")
 
-        # CÁLCULO MANUAL DO ROIC
+        # CÁLCULO MANUAL DO ROIC (Corrigido com)
         try:
             ebit = fin.loc['EBIT'].iloc
             tax_provision = fin.loc['Tax Provision'].iloc if 'Tax Provision' in fin.index else 0
@@ -262,32 +271,36 @@ if ticker:
         except:
             col5.metric("ROIC", "N/D")
 
-        # --- GRÁFICO DAS MARGENS ---
+        # --- GRÁFICO DAS MARGENS (AGORA COM DADOS DO ALPHA VANTAGE) ---
         try:
-            # Ordenar da data mais antiga para a mais recente
-            df_fin_t = fin.T.sort_index(ascending=True)
-            anos_margins = df_fin_t.index.year.astype(str)
+            if df_is is not None and not df_is.empty:
+                # Extrair os dados financeiros diretamente da tabela guardada na secção 4.1
+                rev_m = pd.to_numeric(df_is['totalRevenue'], errors='coerce').replace(0, pd.NA)
+                gp_m = pd.to_numeric(df_is['grossProfit'], errors='coerce')
+                op_m = pd.to_numeric(df_is['operatingIncome'], errors='coerce')
+                ni_m = pd.to_numeric(df_is['netIncome'], errors='coerce')
 
-            # Buscar receitas, lucros, etc (usar 0 caso a coluna não exista)
-            rev_m = df_fin_t.get('Total Revenue', pd.Series(0, index=df_fin_t.index))
-            gp_m = df_fin_t.get('Gross Profit', pd.Series(0, index=df_fin_t.index))
-            op_m = df_fin_t.get('Operating Income', pd.Series(0, index=df_fin_t.index))
-            ni_m = df_fin_t.get('Net Income', pd.Series(0, index=df_fin_t.index))
+                # Calcular margens em percentagem
+                mb_hist = (gp_m / rev_m * 100).fillna(0)
+                mo_hist = (op_m / rev_m * 100).fillna(0)
+                ml_hist = (ni_m / rev_m * 100).fillna(0)
+                
+                anos_margins = df_is['fiscalDateEnding']
 
-            # Evitar divisões por zero substituindo 0 por "vazio" temporalmente
-            rev_m_safe = rev_m.replace(0, pd.NA)
+                fig_margins = go.Figure()
+                fig_margins.add_trace(go.Bar(x=anos_margins, y=mb_hist, name='Margem Bruta', marker_color='#3498db', text=mb_hist.apply(lambda x: f"{x:.1f}%"), textposition='auto'))
+                fig_margins.add_trace(go.Bar(x=anos_margins, y=mo_hist, name='Margem Operacional', marker_color='#e67e22', text=mo_hist.apply(lambda x: f"{x:.1f}%"), textposition='auto'))
+                fig_margins.add_trace(go.Bar(x=anos_margins, y=ml_hist, name='Margem Líquida', marker_color='#2ecc71', text=ml_hist.apply(lambda x: f"{x:.1f}%"), textposition='auto'))
 
-            mb_hist = (gp_m / rev_m_safe * 100).fillna(0)
-            mo_hist = (op_m / rev_m_safe * 100).fillna(0)
-            ml_hist = (ni_m / rev_m_safe * 100).fillna(0)
-
-            fig_margins = go.Figure()
-            fig_margins.add_trace(go.Bar(x=anos_margins, y=mb_hist, name='Margem Bruta', marker_color='#3498db', text=mb_hist.apply(lambda x: f"{x:.1f}%"), textposition='auto'))
-            fig_margins.add_trace(go.Bar(x=anos_margins, y=mo_hist, name='Margem Operacional', marker_color='#e67e22', text=mo_hist.apply(lambda x: f"{x:.1f}%"), textposition='auto'))
-            fig_margins.add_trace(go.Bar(x=anos_margins, y=ml_hist, name='Margem Líquida', marker_color='#2ecc71', text=ml_hist.apply(lambda x: f"{x:.1f}%"), textposition='auto'))
-
-            fig_margins.update_layout(title="Evolução Histórica das Margens", barmode='group', template='plotly_dark', height=400, margin=dict(t=50, b=20), yaxis_title="Percentagem (%)")
-            st.plotly_chart(fig_margins, use_container_width=True)
+                # Formatação de eixo ajustada
+                fig_margins.update_layout(
+                    title="Evolução Histórica das Margens (Alpha Vantage)", 
+                    barmode='group', template='plotly_dark', height=400, margin=dict(t=50, b=20), 
+                    yaxis_title="Percentagem (%)", yaxis_title_font_size=16
+                )
+                st.plotly_chart(fig_margins, use_container_width=True)
+            else:
+                st.info("Para ver a Evolução Histórica das Margens, insere a API Key do Alpha Vantage na barra lateral.")
         except Exception as e:
             st.warning(f"Erro ao processar gráfico de margens históricas: {e}")
 
@@ -305,7 +318,7 @@ if ticker:
         else:
             col1.metric("DEBT / EBITDA", "N/D")
 
-        # CÁLCULO MANUAL DO INTEREST COVERAGE RATIO
+        # CÁLCULO MANUAL DO INTEREST COVERAGE RATIO (Corrigido com)
         try:
             ebit_val = fin.loc['EBIT'].iloc
             interest_exp = abs(fin.loc['Interest Expense'].iloc) if 'Interest Expense' in fin.index else 0
