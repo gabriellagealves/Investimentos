@@ -192,7 +192,7 @@ if ticker:
         # 4.2 Métricas Atuais de Crescimento e CCC
         st.subheader("4.2 Métricas Atuais de Crescimento e Eficiência")
         
-        col1, col2, col3 = st.columns(4)
+        col1, col2, col3 = st.columns(3)
        
         crescimento_receita = info.get("revenueGrowth", None)
         col1.metric("Crescimento Receita (YoY)", f"{crescimento_receita*100:.1f}%" if crescimento_receita else "N/D")
