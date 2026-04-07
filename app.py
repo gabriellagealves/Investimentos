@@ -238,13 +238,13 @@ if ticker:
         col1, col2, col3, col4, col5 = st.columns(5)
 
         mg = info.get("grossMargins", None)
-        col1.metric("Margem Bruta Atual", f"{mg*100:.1f}%" if mg else "N/D")
+        col1.metric("Margem Bruta Atual (TTM)", f"{mg*100:.1f}%" if mg else "N/D")
 
         mo = info.get("operatingMargins", None)
-        col2.metric("Margem Operacional Atual", f"{mo*100:.1f}%" if mo else "N/D")
+        col2.metric("Margem Operacional Atual (TTM)", f"{mo*100:.1f}%" if mo else "N/D")
 
         mn = info.get("profitMargins", None)
-        col3.metric("Margem Líquida Atual", f"{mn*100:.1f}%" if mn else "N/D")
+        col3.metric("Margem Líquida Atual (TTM)", f"{mn*100:.1f}%" if mn else "N/D")
 
         roe = info.get("returnOnEquity", None)
         col4.metric("ROE", f"{roe*100:.1f}%" if roe else "N/D")
