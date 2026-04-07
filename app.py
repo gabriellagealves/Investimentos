@@ -1,5 +1,7 @@
 import streamlit as st
 import yfinance as yf
+import pandas as pd
+import plotly.graph_objects as go
 
 st.set_page_config(page_title="Análise de Ações", layout="wide")
 st.title("Análise de Ações")
@@ -61,25 +63,73 @@ if ticker:
 
     st.divider()
 
-    # ── 4. QUANTITATIVA ──────────────────────────────────────────────────
+   # ── 4. QUANTITATIVA ──────────────────────────────────────────────────
     st.header("4. Quantitativa")
 
-    # 4.1 Crescimento
-    st.subheader("4.1 Métricas de Crescimento")
-    col1, col2, col3, col4 = st.columns(4)
+    # 4.1 Evolução Anual vs TTM (Gráfico Unificado)
+    st.subheader("4.1 Evolução: Receita vs Lucro Líquido ($B)")
 
-    receita = info.get("totalRevenue", None)
-    col1.metric("Receita (Revenue)", f"${receita/1e9:.1f}B" if receita else "N/D")
+    try:
+        # 1. Obter Histórico Anual e formatar
+        df_fin = acao.financials.T.sort_index(ascending=True)
+        
+        # Criar DataFrame base com os anos
+        hist_data = pd.DataFrame({
+            'Receita': df_fin['Total Revenue'] / 1e9,
+            'Lucro Líquido': df_fin['Net Income'] / 1e9
+        })
+        
+        # Converter datas para strings de ANOS apenas (evita meses no eixo X)
+        hist_data.index = hist_data.index.year.astype(str)
 
-    lucro = info.get("netIncomeToCommon", None)
-    col2.metric("Lucro Líquido", f"${lucro/1e9:.1f}B" if lucro else "N/D")
+        # 2. Obter Dados TTM (Trailing Twelve Months) do dicionário info
+        ttm_rev = info.get("totalRevenue", 0) / 1e9
+        ttm_net = info.get("netIncomeToCommon", 0) / 1e9
+        
+        # Adicionar a linha TTM ao DataFrame
+        ttm_df = pd.DataFrame({'Receita': [ttm_rev], 'Lucro Líquido': [ttm_net]}, index=['TTM'])
+        df_final = pd.concat([hist_data, ttm_df])
 
-    ebitda = info.get("ebitda", None)
-    col3.metric("EBITDA", f"${ebitda/1e9:.1f}B" if ebitda else "N/D")
+        # 3. Construir o gráfico com Plotly
+        fig = go.Figure()
 
-    fcf = info.get("freeCashflow", None)
-    col4.metric("Free Cash Flow (FCF)", f"${fcf/1e9:.1f}B" if fcf else "N/D")
+        # Barra de Receita (Azul)
+        fig.add_trace(go.Bar(
+            x=df_final.index,
+            y=df_final['Receita'],
+            name='Receita',
+            marker_color='#1f77b4' # Azul standard
+        ))
 
+        # Barra de Lucro (Amarelo/Dourado)
+        fig.add_trace(go.Bar(
+            x=df_final.index,
+            y=df_final['Lucro Líquido'],
+            name='Lucro Líquido',
+            marker_color='#FFD700' # Dourado/Amarelo
+        ))
+
+        # Ajustes de design do gráfico
+        fig.update_layout(
+            barmode='group', # Barras lado a lado
+            template='plotly_dark',
+            xaxis_title=None,
+            yaxis_title="Biliões de USD ($)",
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+            margin=dict(l=10, r=10, t=30, b=10),
+            height=450
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+
+    except Exception as e:
+        st.warning(f"Nota: Alguns dados históricos ou TTM não estão disponíveis para este ticker. Erro: {e}")
+
+    st.divider()
+
+     # Manter os indicadores atuais (métricas de resumo)
+    st.subheader("Métricas Atuais de Crescimento")
+    
     col1, col2, col3 = st.columns(3)
     cfo = info.get("operatingCashflow", None)
     col1.metric("Cash from Operations (CFO)", f"${cfo/1e9:.1f}B" if cfo else "N/D")
