@@ -96,9 +96,7 @@ if ticker:
         with col_g2:
             # --- GRÁFICO: EBITDA ---
             ttm_ebitda = info.get("ebitda", 0) / 1e9
-            # Proteção: se não houver coluna EBITDA, cria lista de zeros
-            ebitda_hist = df_fin['EBITDA'] / 1e9 if 'EBITDA' in df_fin.columns else * len(anos)
-            
+                        
             fig_ebitda = go.Figure()
             # Histórico
             fig_ebitda.add_trace(go.Bar(x=anos, y=ebitda_hist, name='EBITDA', marker_color='#00CC96')) # Verde Esmeralda
