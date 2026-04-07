@@ -78,11 +78,11 @@ if ticker:
             sit_pais = st.selectbox("Situação económica do país/região?", ["Preencher", "Expansão", "Pico/ Auge", "Recessão", "Recuperação"])
             
         with col4:
-            st.write()
+            st.write( )
             estabilidade = st.selectbox("É estável, transparente e estimulada?", ["Preencher", "Sim", "Não"])
             
         with col5:
-            st.write()
+            st.write( )
             pib_emprego = st.selectbox("PIB e mercado de trabalho?", ["Preencher", "Bom", "Moderado", "Mau"])
 
         st.divider()
