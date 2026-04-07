@@ -69,7 +69,7 @@ if ticker:
     # 4.1 Evolução Histórica (Gráficos)
     st.subheader("4.1 Evolução: Receita, Lucro e EBITDA ($B)")
 
-   try:
+    try:
         # 1. Obter Dados Financeiros e ordenar
         df_fin = acao.financials.T.sort_index(ascending=True)
         anos = df_fin.index.year.astype(str)
@@ -82,7 +82,7 @@ if ticker:
             ttm_rev = info.get("totalRevenue", 0) / 1e9
             ttm_net = info.get("netIncomeToCommon", 0) / 1e9
             
-            # Obtenção direta (vai buscar exatamente a coluna que está no yfinance)
+            # Obtenção direta sem if/else
             rev_hist = df_fin['Total Revenue'] / 1e9
             net_hist = df_fin['Net Income'] / 1e9
                       
@@ -101,12 +101,12 @@ if ticker:
             # --- GRÁFICO: EBITDA ---
             ttm_ebitda = info.get("ebitda", 0) / 1e9
             
-            # Obtenção direta do EBITDA (exatamente como pediste)
+            # Obtenção direta do EBITDA sem if/else
             ebitda_hist = df_fin['EBITDA'] / 1e9
                         
             fig_ebitda = go.Figure()
             # Histórico
-            fig_ebitda.add_trace(go.Bar(x=anos, y=ebitda_hist, name='EBITDA', marker_color='#00CC96')) # Verde Esmeralda
+            fig_ebitda.add_trace(go.Bar(x=anos, y=ebitda_hist, name='EBITDA', marker_color='#00CC96')) 
             # TTM
             fig_ebitda.add_trace(go.Bar(x=['TTM'], y=[ttm_ebitda], name='EBITDA (TTM)', marker_color='#00CC96', opacity=0.6, showlegend=False))
             
@@ -114,10 +114,10 @@ if ticker:
             st.plotly_chart(fig_ebitda, use_container_width=True)
 
     except Exception as e:
-        # Se a ação não tiver EBITDA (ex: Banco JP Morgan), o código salta para aqui e mostra-te este aviso em vez de bloquear.
-        st.warning(f"Alguns dados históricos não estão disponíveis para este ticker. Erro: {e}")
+        st.warning(f"Erro ao processar os gráficos históricos: {e}")
 
     st.divider()
+
     # Manter os indicadores atuais (métricas de resumo)
     st.subheader("4.2 Métricas Atuais de Crescimento")
     
@@ -168,9 +168,7 @@ if ticker:
     cr = info.get("currentRatio", None)
     col3.metric("Current Ratio", f"{cr:.2f}" if cr else "N/D")
 
-    # Correção: Definir a variável fcf antes de a usar no rácio
     fcf = info.get("freeCashflow", None)
-    
     if divida and fcf and fcf != 0:
         debt_fcf = divida / fcf
         col4.metric("Total DEBT / FCF", f"{debt_fcf:.1f}x")
