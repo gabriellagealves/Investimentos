@@ -63,7 +63,7 @@ if ticker:
 
     st.divider()
 
-# ── 4. QUANTITATIVA ──────────────────────────────────────────────────
+    # ── 4. QUANTITATIVA ──────────────────────────────────────────────────
     st.header("4. Quantitativa")
 
     # 4.1 Evolução Histórica (Gráficos)
@@ -82,10 +82,14 @@ if ticker:
             ttm_rev = info.get("totalRevenue", 0) / 1e9
             ttm_net = info.get("netIncomeToCommon", 0) / 1e9
             
+            # Extração segura das receitas e lucros
+            rev_hist = df_fin['Total Revenue'] / 1e9 if 'Total Revenue' in df_fin.columns else*len(anos)
+            net_hist = df_fin['Net Income'] / 1e9 if 'Net Income' in df_fin.columns else*len(anos)
+            
             fig_res = go.Figure()
             # Histórico
-            fig_res.add_trace(go.Bar(x=anos, y=df_fin['Total Revenue']/1e9, name='Receita', marker_color='#1f77b4'))
-            fig_res.add_trace(go.Bar(x=anos, y=df_fin['Net Income']/1e9, name='Lucro Líquido', marker_color='#FFD700'))
+            fig_res.add_trace(go.Bar(x=anos, y=rev_hist, name='Receita', marker_color='#1f77b4'))
+            fig_res.add_trace(go.Bar(x=anos, y=net_hist, name='Lucro Líquido', marker_color='#FFD700'))
             # TTM
             fig_res.add_trace(go.Bar(x=['TTM'], y=[ttm_rev], name='Receita (TTM)', marker_color='#1f77b4', opacity=0.6, showlegend=False))
             fig_res.add_trace(go.Bar(x=['TTM'], y=[ttm_net], name='Lucro (TTM)', marker_color='#FFD700', opacity=0.6, showlegend=False))
@@ -93,35 +97,25 @@ if ticker:
             fig_res.update_layout(title="Receita vs Lucro Líquido", barmode='group', template='plotly_dark', height=400, margin=dict(t=50, b=20))
             st.plotly_chart(fig_res, use_container_width=True)
 
-       with col_g2:
-            # 1. Valor TTM (o que aparece nos cartões)
+        with col_g2:
+            # --- GRÁFICO: EBITDA ---
             ttm_ebitda = info.get("ebitda", 0) / 1e9
             
-            # 2. Procurar a coluna histórica (mesmo que mude o nome ligeiramente)
-            # Isto procura qualquer coluna que tenha 'EBITDA' no nome
-            colunas_ebitda = [c for c in df_fin.columns if 'EBITDA' in c.upper()]
-            
-            if colunas_ebitda:
-                # Usa a primeira coluna que encontrar (geralmente é 'EBITDA')
-                ebitda_hist = df_fin[colunas_ebitda].fillna(0) / 1e9
+            # Extração segura do EBITDA histórico (procura pelas nomenclaturas corretas do yfinance)
+            if 'EBITDA' in df_fin.columns:
+                ebitda_hist = df_fin['EBITDA'] / 1e9
+            elif 'Normalized EBITDA' in df_fin.columns:
+                ebitda_hist = df_fin['Normalized EBITDA'] / 1e9
             else:
-                # Se não encontrar MESMO nada, cria os zeros para o gráfico não morrer
-                ebitda_hist = * len(anos)
-            
+                ebitda_hist = * len(anos) # Fallback para não quebrar o código
+                        
             fig_ebitda = go.Figure()
-            
-            # Histórico Anual
-            fig_ebitda.add_trace(go.Bar(x=anos, y=ebitda_hist, name='EBITDA', marker_color='#00CC96'))
-            
-            # Barra TTM
+            # Histórico
+            fig_ebitda.add_trace(go.Bar(x=anos, y=ebitda_hist, name='EBITDA', marker_color='#00CC96')) # Verde Esmeralda
+            # TTM
             fig_ebitda.add_trace(go.Bar(x=['TTM'], y=[ttm_ebitda], name='EBITDA (TTM)', marker_color='#00CC96', opacity=0.6, showlegend=False))
             
-            fig_ebitda.update_layout(
-                title="Evolução EBITDA ($B)", 
-                template='plotly_dark', 
-                height=400, 
-                margin=dict(t=50, b=20)
-            )
+            fig_ebitda.update_layout(title="EBITDA", template='plotly_dark', height=400, margin=dict(t=50, b=20))
             st.plotly_chart(fig_ebitda, use_container_width=True)
 
     except Exception as e:
@@ -129,8 +123,8 @@ if ticker:
 
     st.divider()
 
-     # Manter os indicadores atuais (métricas de resumo)
-    st.subheader("Métricas Atuais de Crescimento")
+    # Manter os indicadores atuais (métricas de resumo)
+    st.subheader("4.2 Métricas Atuais de Crescimento")
     
     col1, col2, col3 = st.columns(3)
     cfo = info.get("operatingCashflow", None)
@@ -142,8 +136,8 @@ if ticker:
     crescimento_lucro = info.get("earningsGrowth", None)
     col3.metric("Crescimento Lucro (YoY)", f"{crescimento_lucro*100:.1f}%" if crescimento_lucro else "N/D")
 
-    # 4.2 Performance
-    st.subheader("4.2 Métricas de Performance")
+    # 4.3 Performance
+    st.subheader("4.3 Métricas de Performance")
     col1, col2, col3, col4, col5 = st.columns(5)
 
     mg = info.get("grossMargins", None)
@@ -161,8 +155,8 @@ if ticker:
     roic = info.get("returnOnAssets", None)
     col5.metric("ROA (aprox. ROIC)", f"{roic*100:.1f}%" if roic else "N/D")
 
-    # 4.3 Saúde Financeira
-    st.subheader("4.3 Saúde Financeira")
+    # 4.4 Saúde Financeira
+    st.subheader("4.4 Saúde Financeira")
     col1, col2, col3, col4 = st.columns(4)
 
     divida = info.get("totalDebt", None)
@@ -179,14 +173,17 @@ if ticker:
     cr = info.get("currentRatio", None)
     col3.metric("Current Ratio", f"{cr:.2f}" if cr else "N/D")
 
+    # Correção: Definir a variável fcf antes de a usar no rácio
+    fcf = info.get("freeCashflow", None)
+    
     if divida and fcf and fcf != 0:
         debt_fcf = divida / fcf
         col4.metric("Total DEBT / FCF", f"{debt_fcf:.1f}x")
     else:
         col4.metric("Total DEBT / FCF", "N/D")
 
-    # 4.4 Alavancagem
-    st.subheader("4.4 Alavancagem Financeira")
+    # 4.5 Alavancagem
+    st.subheader("4.5 Alavancagem Financeira")
     col1, col2 = st.columns(2)
 
     de = info.get("debtToEquity", None)
@@ -194,8 +191,8 @@ if ticker:
 
     col2.metric("Dívida Total", f"${divida/1e9:.1f}B" if divida else "N/D")
 
-    # 4.5 Dividendos
-    st.subheader("4.5 Dividendos")
+    # 4.6 Dividendos
+    st.subheader("4.6 Dividendos")
     col1, col2, col3 = st.columns(3)
 
     div_yield = info.get("dividendYield", None)
@@ -207,8 +204,8 @@ if ticker:
     shares = info.get("sharesOutstanding", None)
     col3.metric("Ações em Circulação", f"{shares/1e9:.2f}B" if shares else "N/D")
 
-    # 4.6 Valuation
-    st.subheader("4.6 Valuation")
+    # 4.7 Valuation
+    st.subheader("4.7 Valuation")
     col1, col2, col3, col4 = st.columns(4)
 
     pe = info.get("trailingPE", None)
