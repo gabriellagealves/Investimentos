@@ -114,7 +114,7 @@ if ticker:
             st.plotly_chart(fig_ebitda, use_container_width=True)
 
         # 3. Criar a segunda linha de gráficos
-        col_g3 = st.columns(1)
+        col_g3, col_g4 = st.columns(2)
         
         with col_g3:
             # --- GRÁFICO 3: CFO VS FCF ---
