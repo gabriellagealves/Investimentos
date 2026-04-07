@@ -121,9 +121,12 @@ if ticker:
             ttm_cfo = info.get("operatingCashflow", 0) / 1e9
             ttm_fcf = info.get("freeCashflow", 0) / 1e9
             
-            # Puxar dados da Demonstração de Fluxo de Caixa
-            cfo_hist = df_cf['Operating Cash Flow'] / 1e9
-            fcf_hist = df_cf['Free Cash Flow'] / 1e9
+            # Puxar dados da Demonstração de Fluxo de Caixa (com .get para não dar erro se faltar a coluna)
+            cfo_col = df_cf.get('Operating Cash Flow')
+            fcf_col = df_cf.get('Free Cash Flow')
+            
+            cfo_hist = cfo_col / 1e9 if cfo_col is not None else * len(anos_cf)
+            fcf_hist = fcf_col / 1e9 if fcf_col is not None else * len(anos_cf)
             
             fig_cf = go.Figure()
             # Histórico
