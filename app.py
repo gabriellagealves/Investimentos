@@ -93,17 +93,35 @@ if ticker:
             fig_res.update_layout(title="Receita vs Lucro Líquido", barmode='group', template='plotly_dark', height=400, margin=dict(t=50, b=20))
             st.plotly_chart(fig_res, use_container_width=True)
 
-        with col_g2:
-            # --- GRÁFICO: EBITDA ---
+       with col_g2:
+            # 1. Valor TTM (o que aparece nos cartões)
             ttm_ebitda = info.get("ebitda", 0) / 1e9
-                        
+            
+            # 2. Procurar a coluna histórica (mesmo que mude o nome ligeiramente)
+            # Isto procura qualquer coluna que tenha 'EBITDA' no nome
+            colunas_ebitda = [c for c in df_fin.columns if 'EBITDA' in c.upper()]
+            
+            if colunas_ebitda:
+                # Usa a primeira coluna que encontrar (geralmente é 'EBITDA')
+                ebitda_hist = df_fin[colunas_ebitda].fillna(0) / 1e9
+            else:
+                # Se não encontrar MESMO nada, cria os zeros para o gráfico não morrer
+                ebitda_hist = * len(anos)
+            
             fig_ebitda = go.Figure()
-            # Histórico
-            fig_ebitda.add_trace(go.Bar(x=anos, y=df_fin['ebitda']/1e9, name='EBITDA', marker_color='#00CC96')) # Verde Esmeralda
-            # TTM
+            
+            # Histórico Anual
+            fig_ebitda.add_trace(go.Bar(x=anos, y=ebitda_hist, name='EBITDA', marker_color='#00CC96'))
+            
+            # Barra TTM
             fig_ebitda.add_trace(go.Bar(x=['TTM'], y=[ttm_ebitda], name='EBITDA (TTM)', marker_color='#00CC96', opacity=0.6, showlegend=False))
             
-            fig_ebitda.update_layout(title="EBITDA", template='plotly_dark', height=400, margin=dict(t=50, b=20))
+            fig_ebitda.update_layout(
+                title="Evolução EBITDA ($B)", 
+                template='plotly_dark', 
+                height=400, 
+                margin=dict(t=50, b=20)
+            )
             st.plotly_chart(fig_ebitda, use_container_width=True)
 
     except Exception as e:
