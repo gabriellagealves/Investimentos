@@ -86,14 +86,15 @@ if ticker:
         ttm_fcf = [info.get("freeCashflow", 0) / 1e9]
 
         # --- GRÁFICO 1: RECEITA VS LUCRO ---
-        fig1 = go.Figure()
-        # Se a coluna não existir, cria uma lista de zeros
-        rev_hist = df_fin['Total Revenue']/1e9 if 'Total Revenue' in df_fin.columns else * len(anos)
-        net_hist = df_fin['Net Income']/1e9 if 'Net Income' in df_fin.columns else * len(anos)
+               fig1 = go.Figure()
+        fig1.add_trace(go.Bar(x=anos, y=df_fin['Total Revenue']/1e9, name='Receita', marker_color='#1f77b4'))
+        fig1.add_trace(go.Bar(x=anos, y=df_fin['Net Income']/1e9, name='Lucro Líquido', marker_color='#FFD700'))
+        # Adicionar TTM
+        fig1.add_trace(go.Bar(x=ttm_label, y=ttm_rev, name='Receita (TTM)', marker_color='#1f77b4', opacity=0.7, showlegend=False))
+        fig1.add_trace(go.Bar(x=ttm_label, y=ttm_net, name='Lucro (TTM)', marker_color='#FFD700', opacity=0.7, showlegend=False))
         
-        fig1.add_trace(go.Bar(x=anos, y=rev_hist, name='Receita', marker_color='#1f77b4'))
-        fig1.add_trace(go.Bar(x=anos, y=net_hist, name='Lucro Líquido', marker_color='#FFD700'))
-        
+        fig1.update_layout(title="Receita vs Lucro Líquido ($B)", barmode='group', template='plotly_dark', height=350, margin=dict(t=30, b=10))
+        # TTM
         fig1.add_trace(go.Bar(x=ttm_label, y=ttm_rev, name='Receita (TTM)', marker_color='#1f77b4', opacity=0.6, showlegend=False))
         fig1.add_trace(go.Bar(x=ttm_label, y=ttm_net, name='Lucro (TTM)', marker_color='#FFD700', opacity=0.6, showlegend=False))
         fig1.update_layout(title="Receita vs Lucro Líquido ($B)", barmode='group', template='plotly_dark', height=350)
