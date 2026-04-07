@@ -120,11 +120,10 @@ if ticker:
             # --- GRÁFICO 3: CFO VS FCF ---
             ttm_cfo = info.get("operatingCashflow", 0) / 1e9
             ttm_fcf = info.get("freeCashflow", 0) / 1e9
-            
-            # Puxar dados da Demonstração de Fluxo de Caixa (com .get para não dar erro se faltar a coluna)
-            cfo_col = df_cf.get('Operating Cash Flow')
-            fcf_col = df_cf.get('Free Cash Flow')
-            
+
+            cfo_hist = df_fin['operatingCashflow'] / 1e9
+            fcf_hist = df_fin['freeCashflow'] / 1e9
+              
             fig_cf = go.Figure()
             # Histórico
             fig_cf.add_trace(go.Bar(x=anos_cf, y=cfo_hist, name='CFO', marker_color='#1f77b4')) # Azul
