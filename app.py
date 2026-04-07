@@ -74,7 +74,7 @@ if ticker:
         # ── 2. NEGÓCIO / EMPRESA ─────────────────────────────────────────────
         st.header("2. Negócio / Empresa")
 
-        descricao = info.get("BusinessSummary", "")
+        descricao = info.get("longBusinessSummary", "")
         if descricao:
             with st.expander("Descrição do negócio (fonte: Yahoo Finance)"):
                 st.write(descricao)
