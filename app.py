@@ -67,29 +67,31 @@ if ticker:
     st.header("4. Quantitativa")
 
     # 4.1 Evolução Histórica (Gráficos)
-    st.subheader("4.1 Evolução: Receita, Lucro e EBITDA ($B)")
+    st.subheader("4.1 Evolução: Receita, Lucro, EBITDA e Cash Flow ($B)")
 
     try:
-        # 1. Obter Dados Financeiros e ordenar
+        # 1. Obter Dados Financeiros (DRE) e Cash Flow e ordenar
         df_fin = acao.financials.T.sort_index(ascending=True)
-        anos = df_fin.index.year.astype(str)
+        df_cf = acao.cashflow.T.sort_index(ascending=True)
+        
+        anos_fin = df_fin.index.year.astype(str)
+        anos_cf = df_cf.index.year.astype(str)
 
-        # 2. Criar as colunas para os dois gráficos
+        # 2. Criar a primeira linha de gráficos
         col_g1, col_g2 = st.columns(2)
 
         with col_g1:
-            # --- GRÁFICO: RECEITA VS LUCRO ---
+            # --- GRÁFICO 1: RECEITA VS LUCRO ---
             ttm_rev = info.get("totalRevenue", 0) / 1e9
             ttm_net = info.get("netIncomeToCommon", 0) / 1e9
             
-            # Obtenção direta sem if/else
             rev_hist = df_fin['Total Revenue'] / 1e9
             net_hist = df_fin['Net Income'] / 1e9
                       
             fig_res = go.Figure()
             # Histórico
-            fig_res.add_trace(go.Bar(x=anos, y=rev_hist, name='Receita', marker_color='#1f77b4'))
-            fig_res.add_trace(go.Bar(x=anos, y=net_hist, name='Lucro Líquido', marker_color='#FFD700'))
+            fig_res.add_trace(go.Bar(x=anos_fin, y=rev_hist, name='Receita', marker_color='#1f77b4'))
+            fig_res.add_trace(go.Bar(x=anos_fin, y=net_hist, name='Lucro Líquido', marker_color='#FFD700'))
             # TTM
             fig_res.add_trace(go.Bar(x=['TTM'], y=[ttm_rev], name='Receita (TTM)', marker_color='#1f77b4', opacity=0.6, showlegend=False))
             fig_res.add_trace(go.Bar(x=['TTM'], y=[ttm_net], name='Lucro (TTM)', marker_color='#FFD700', opacity=0.6, showlegend=False))
@@ -98,20 +100,41 @@ if ticker:
             st.plotly_chart(fig_res, use_container_width=True)
 
         with col_g2:
-            # --- GRÁFICO: EBITDA ---
+            # --- GRÁFICO 2: EBITDA ---
             ttm_ebitda = info.get("ebitda", 0) / 1e9
-            
-            # Obtenção direta do EBITDA sem if/else
             ebitda_hist = df_fin['EBITDA'] / 1e9
                         
             fig_ebitda = go.Figure()
             # Histórico
-            fig_ebitda.add_trace(go.Bar(x=anos, y=ebitda_hist, name='EBITDA', marker_color='#00CC96')) 
+            fig_ebitda.add_trace(go.Bar(x=anos_fin, y=ebitda_hist, name='EBITDA', marker_color='#00CC96')) 
             # TTM
             fig_ebitda.add_trace(go.Bar(x=['TTM'], y=[ttm_ebitda], name='EBITDA (TTM)', marker_color='#00CC96', opacity=0.6, showlegend=False))
             
             fig_ebitda.update_layout(title="EBITDA", template='plotly_dark', height=400, margin=dict(t=50, b=20))
             st.plotly_chart(fig_ebitda, use_container_width=True)
+
+        # 3. Criar a segunda linha de gráficos
+        col_g3, col_g4 = st.columns(2)
+        
+        with col_g3:
+            # --- GRÁFICO 3: CFO VS FCF ---
+            ttm_cfo = info.get("operatingCashflow", 0) / 1e9
+            ttm_fcf = info.get("freeCashflow", 0) / 1e9
+            
+            # Puxar dados da Demonstração de Fluxo de Caixa
+            cfo_hist = df_cf['Operating Cash Flow'] / 1e9
+            fcf_hist = df_cf['Free Cash Flow'] / 1e9
+            
+            fig_cf = go.Figure()
+            # Histórico
+            fig_cf.add_trace(go.Bar(x=anos_cf, y=cfo_hist, name='CFO', marker_color='#1f77b4')) # Azul
+            fig_cf.add_trace(go.Bar(x=anos_cf, y=fcf_hist, name='FCF', marker_color='#FFD700')) # Amarelo
+            # TTM
+            fig_cf.add_trace(go.Bar(x=['TTM'], y=[ttm_cfo], name='CFO (TTM)', marker_color='#1f77b4', opacity=0.6, showlegend=False))
+            fig_cf.add_trace(go.Bar(x=['TTM'], y=[ttm_fcf], name='FCF (TTM)', marker_color='#FFD700', opacity=0.6, showlegend=False))
+            
+            fig_cf.update_layout(title="CFO vs Free Cash Flow (FCF)", barmode='group', template='plotly_dark', height=400, margin=dict(t=50, b=20))
+            st.plotly_chart(fig_cf, use_container_width=True)
 
     except Exception as e:
         st.warning(f"Erro ao processar os gráficos históricos: {e}")
