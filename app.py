@@ -30,7 +30,7 @@ if st.sidebar.button("Limpar Memória (Cache)"):
 
 st.title("Análise de Ações")
 
-ticker = st.text_input("Ticker da ação (ex: AAPL, MSFT, NVDA, AMD)")
+ticker = st.text_input("Ticker da ação (ex: AAPL, MSFT, NVDA, AMD)").upper()
 
 if ticker:
     with st.spinner('A processar dados...'):
@@ -247,7 +247,7 @@ if ticker:
         col3.metric("Margem Líquida Atual (TTM)", f"{mn*100:.1f}%" if mn else "N/D")
 
         roe = info.get("returnOnEquity", None)
-        col4.metric("ROE", f"{roe*100:.1f}%" if roe else "N/D")
+        col4.metric("ROE (TTM)", f"{roe*100:.1f}%" if roe else "N/D")
 
         # CÁLCULO MANUAL DO ROIC 
         try:
