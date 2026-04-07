@@ -81,11 +81,7 @@ if ticker:
             # --- GRÁFICO: RECEITA VS LUCRO ---
             ttm_rev = info.get("totalRevenue", 0) / 1e9
             ttm_net = info.get("netIncomeToCommon", 0) / 1e9
-            
-            # Extração segura das receitas e lucros
-            rev_hist = df_fin['Total Revenue'] / 1e9 if 'Total Revenue' in df_fin.columns else*len(anos)
-            net_hist = df_fin['Net Income'] / 1e9 if 'Net Income' in df_fin.columns else*len(anos)
-            
+                      
             fig_res = go.Figure()
             # Histórico
             fig_res.add_trace(go.Bar(x=anos, y=rev_hist, name='Receita', marker_color='#1f77b4'))
