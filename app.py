@@ -6,10 +6,25 @@ import requests
 
 st.set_page_config(page_title="Análise de Ações", layout="wide")
 
+# --- TRUQUE DE MESTRE: CACHE ---
+# Guarda os dados na memória durante 1 hora (3600 segundos) para não esgotar as tuas 25 pesquisas diárias!
+@st.cache_data(ttl=3600)
+def obter_dados_alpha_vantage(ticker_symbol, api_key):
+    url_is = f"https://www.alphavantage.co/query?function=INCOME_STATEMENT&symbol={ticker_symbol}&apikey={api_key}"
+    res_is = requests.get(url_is).json()
+    
+    url_cf = f"https://www.alphavantage.co/query?function=CASH_FLOW&symbol={ticker_symbol}&apikey={api_key}"
+    res_cf = requests.get(url_cf).json()
+    
+    return res_is, res_cf
+
 # --- BARRA LATERAL PARA A API KEY ---
 st.sidebar.header("Configurações")
 av_api_key = st.sidebar.text_input("API Key do Alpha Vantage", type="password", help="Obtém a tua chave gratuita em alphavantage.co")
 st.sidebar.markdown("*(Limite da versão gratuita: 25 pesquisas por dia)*")
+if st.sidebar.button("Limpar Memória (Cache)"):
+    st.cache_data.clear()
+    st.sidebar.success("Memória limpa!")
 
 st.title("Análise de Ações")
 
@@ -78,24 +93,19 @@ if ticker:
 
     if av_api_key:
         try:
-            # 1. Obter Dados via Alpha Vantage API
-            url_is = f"https://www.alphavantage.co/query?function=INCOME_STATEMENT&symbol={ticker}&apikey={av_api_key}"
-            is_data = requests.get(url_is).json()
-            
-            url_cf = f"https://www.alphavantage.co/query?function=CASH_FLOW&symbol={ticker}&apikey={av_api_key}"
-            cf_data = requests.get(url_cf).json()
+            # Chama a função que tem memória (Cache) em vez de gastar pedidos sempre
+            is_data, cf_data = obter_dados_alpha_vantage(ticker, av_api_key)
 
-            # Verificar se os dados chegaram com a chave 'annualReports'
+            # Verificar se os dados chegaram bem em AMBOS os pedidos
             if "annualReports" in is_data and "annualReports" in cf_data:
                 
                 # Pegar os últimos 5 anos e converter para DataFrame
                 df_is = pd.DataFrame(is_data["annualReports"][:5])
                 df_cf = pd.DataFrame(cf_data["annualReports"][:5])
 
-                # Limpeza das Datas (O AlphaVantage devolve YYYY-MM-DD, queremos só o ano)
-                # Invertemos também a ordem para ficar do mais antigo para o mais recente (ascending)
+                # Limpeza das Datas e Inversão da ordem (ascending)
                 df_is['fiscalDateEnding'] = pd.to_datetime(df_is['fiscalDateEnding']).dt.year.astype(str)
-                df_is = df_is.iloc[::-1].reset_index(drop=True) # Inverte a ordem do dataframe
+                df_is = df_is.iloc[::-1].reset_index(drop=True)
                 
                 df_cf['fiscalDateEnding'] = pd.to_datetime(df_cf['fiscalDateEnding']).dt.year.astype(str)
                 df_cf = df_cf.iloc[::-1].reset_index(drop=True)
@@ -103,25 +113,24 @@ if ticker:
                 anos_fin = df_is['fiscalDateEnding']
                 anos_cf = df_cf['fiscalDateEnding']
 
-                # O Alpha Vantage traz os números como texto ('None' ou '12345'). Precisamos converter para numérico.
+                # Extração e conversão para números
                 rev_hist = pd.to_numeric(df_is['totalRevenue'], errors='coerce').fillna(0) / 1e9
                 net_hist = pd.to_numeric(df_is['netIncome'], errors='coerce').fillna(0) / 1e9
                 ebitda_hist = pd.to_numeric(df_is['ebitda'], errors='coerce').fillna(0) / 1e9
 
                 cfo_hist = pd.to_numeric(df_cf['operatingCashflow'], errors='coerce').fillna(0) / 1e9
                 capex_hist = pd.to_numeric(df_cf['capitalExpenditures'], errors='coerce').fillna(0) / 1e9
-                fcf_hist = cfo_hist - capex_hist # Free Cash Flow = Operating Cash Flow - CapEx
+                fcf_hist = cfo_hist - capex_hist # Free Cash Flow = CFO - CapEx
 
-                # TTM do yfinance (tempo real) para manter as barras extra no fim
+                # TTM do yfinance
                 ttm_rev = info.get("totalRevenue", 0) / 1e9
                 ttm_net = info.get("netIncomeToCommon", 0) / 1e9
                 ttm_ebitda = info.get("ebitda", 0) / 1e9
                 ttm_cfo = info.get("operatingCashflow", 0) / 1e9
                 ttm_fcf = info.get("freeCashflow", 0) / 1e9
 
-                # 2. Primeira linha de gráficos
+                # Primeira linha de gráficos
                 col_g1, col_g2 = st.columns(2)
-
                 with col_g1:
                     fig_res = go.Figure()
                     fig_res.add_trace(go.Bar(x=anos_fin, y=rev_hist, name='Receita', marker_color='#1f77b4'))
@@ -138,9 +147,8 @@ if ticker:
                     fig_ebitda.update_layout(title="EBITDA", template='plotly_dark', height=400, margin=dict(t=50, b=20))
                     st.plotly_chart(fig_ebitda, use_container_width=True)
 
-                # 3. Segunda linha de gráficos
+                # Segunda linha de gráficos
                 col_g3, col_g4 = st.columns(2)
-                
                 with col_g3:
                     fig_cf = go.Figure()
                     fig_cf.add_trace(go.Bar(x=anos_cf, y=cfo_hist, name='CFO', marker_color='#1f77b4'))
@@ -150,9 +158,11 @@ if ticker:
                     fig_cf.update_layout(title="Cash From Operations vs Free Cash Flow (FCF)", barmode='group', template='plotly_dark', height=400, margin=dict(t=50, b=20))
                     st.plotly_chart(fig_cf, use_container_width=True)
             else:
-                # Mostrar o erro limpo caso a API bloqueie
-                erro_msg = is_data.get("Information", is_data.get("Error Message", "Dados não encontrados."))
-                st.warning(f"Aviso Alpha Vantage: {erro_msg}")
+                # Mostrar EXATAMENTE qual foi a tabela que falhou
+                if "annualReports" not in is_data:
+                    st.warning(f"O Alpha Vantage bloqueou o pedido de Receitas: {is_data.get('Information', is_data)}")
+                elif "annualReports" not in cf_data:
+                    st.warning(f"O Alpha Vantage bloqueou o pedido de Cash Flow: {cf_data.get('Information', cf_data)}")
 
         except Exception as e:
             st.error(f"Erro ao processar dados da API Alpha Vantage: {e}")
