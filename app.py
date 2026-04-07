@@ -2,8 +2,15 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 import plotly.graph_objects as go
+import requests
 
 st.set_page_config(page_title="Análise de Ações", layout="wide")
+
+# --- BARRA LATERAL PARA A API KEY ---
+st.sidebar.header("Configurações")
+fmp_api_key = st.sidebar.text_input("API Key do FMP", type="password", help="Cria uma conta gratuita em financialmodelingprep.com para obter a chave.")
+st.sidebar.markdown("*(A chave é necessária apenas para os gráficos históricos de 5 anos)*")
+
 st.title("Análise de Ações")
 
 ticker = st.text_input("Ticker da ação (ex: AAPL, MSFT, NVDA, AMD)")
@@ -66,77 +73,80 @@ if ticker:
     # ── 4. QUANTITATIVA ──────────────────────────────────────────────────
     st.header("4. Quantitativa")
 
-    # 4.1 Evolução Histórica (Gráficos)
+    # 4.1 Evolução Histórica (Gráficos com FMP API)
     st.subheader("4.1 Evolução: Receita, Lucro, EBITDA e Cash Flow ($B)")
 
-    try:
-        # 1. Obter Dados Financeiros (DRE) e Cash Flow e ordenar
-        df_fin = acao.financials.T.sort_index(ascending=True)
-        df_cf = acao.cashflow.T.sort_index(ascending=True)
-        
-        anos_fin = df_fin.index.year.astype(str)
-        anos_cf = df_cf.index.year.astype(str)
-
-        # 2. Criar a primeira linha de gráficos
-        col_g1, col_g2 = st.columns(2)
-
-        with col_g1:
-            # --- GRÁFICO 1: RECEITA VS LUCRO ---
-            ttm_rev = info.get("totalRevenue", 0) / 1e9
-            ttm_net = info.get("netIncomeToCommon", 0) / 1e9
+    if fmp_api_key:
+        try:
+            # 1. Obter Dados via Financial Modeling Prep (FMP)
+            # DRE (Income Statement) - Últimos 5 anos
+            url_is = f"https://financialmodelingprep.com/api/v3/income-statement/{ticker}?limit=5&apikey={fmp_api_key}"
+            is_data = requests.get(url_is).json()
             
-            rev_hist = df_fin['Total Revenue'] / 1e9
-            net_hist = df_fin['Net Income'] / 1e9
-                      
-            fig_res = go.Figure()
-            # Histórico
-            fig_res.add_trace(go.Bar(x=anos_fin, y=rev_hist, name='Receita', marker_color='#1f77b4'))
-            fig_res.add_trace(go.Bar(x=anos_fin, y=net_hist, name='Lucro Líquido', marker_color='#FFD700'))
-            # TTM
-            fig_res.add_trace(go.Bar(x=['TTM'], y=[ttm_rev], name='Receita (TTM)', marker_color='#1f77b4', opacity=0.6, showlegend=False))
-            fig_res.add_trace(go.Bar(x=['TTM'], y=[ttm_net], name='Lucro (TTM)', marker_color='#FFD700', opacity=0.6, showlegend=False))
-            
-            fig_res.update_layout(title="Receita vs Lucro Líquido", barmode='group', template='plotly_dark', height=400, margin=dict(t=50, b=20))
-            st.plotly_chart(fig_res, use_container_width=True)
+            # Fluxo de Caixa (Cash Flow) - Últimos 5 anos
+            url_cf = f"https://financialmodelingprep.com/api/v3/cash-flow-statement/{ticker}?limit=5&apikey={fmp_api_key}"
+            cf_data = requests.get(url_cf).json()
 
-        with col_g2:
-            # --- GRÁFICO 2: EBITDA ---
-            ttm_ebitda = info.get("ebitda", 0) / 1e9
-            ebitda_hist = df_fin['EBITDA'] / 1e9
-                        
-            fig_ebitda = go.Figure()
-            # Histórico
-            fig_ebitda.add_trace(go.Bar(x=anos_fin, y=ebitda_hist, name='EBITDA', marker_color='#00CC96')) 
-            # TTM
-            fig_ebitda.add_trace(go.Bar(x=['TTM'], y=[ttm_ebitda], name='EBITDA (TTM)', marker_color='#00CC96', opacity=0.6, showlegend=False))
-            
-            fig_ebitda.update_layout(title="EBITDA", template='plotly_dark', height=400, margin=dict(t=50, b=20))
-            st.plotly_chart(fig_ebitda, use_container_width=True)
+            if isinstance(is_data, list) and len(is_data) > 0 and isinstance(cf_data, list) and len(cf_data) > 0:
+                # Converter para Pandas e ordenar do mais antigo para o mais recente (ascending)
+                df_is = pd.DataFrame(is_data).sort_values('date')
+                df_cf = pd.DataFrame(cf_data).sort_values('date')
 
-        # 3. Criar a segunda linha de gráficos
-        col_g3, col_g4 = st.columns(2)
-        
-        with col_g3:
-            # --- GRÁFICO 3: CFO VS FCF ---
-            ttm_cfo = info.get("operatingCashflow", 0) / 1e9
-            ttm_fcf = info.get("freeCashflow", 0) / 1e9
+                # Anos para o eixo X
+                anos_fin = df_is['calendarYear'].astype(str)
+                anos_cf = df_cf['calendarYear'].astype(str)
 
-            cfo_hist = df_cf['Operating Cash Flow'] / 1e9
-            fcf_hist = df_cf['Free Cash Flow'] / 1e9
-              
-            fig_cf = go.Figure()
-            # Histórico
-            fig_cf.add_trace(go.Bar(x=anos_cf, y=cfo_hist, name='CFO', marker_color='#1f77b4')) # Azul
-            fig_cf.add_trace(go.Bar(x=anos_cf, y=fcf_hist, name='FCF', marker_color='#FFD700')) # Amarelo
-            # TTM
-            fig_cf.add_trace(go.Bar(x=['TTM'], y=[ttm_cfo], name='CFO (TTM)', marker_color='#1f77b4', opacity=0.6, showlegend=False))
-            fig_cf.add_trace(go.Bar(x=['TTM'], y=[ttm_fcf], name='FCF (TTM)', marker_color='#FFD700', opacity=0.6, showlegend=False))
-            
-            fig_cf.update_layout(title="Cash From Operations vs Free Cash Flow (FCF)", barmode='group', template='plotly_dark', height=400, margin=dict(t=50, b=20))
-            st.plotly_chart(fig_cf, use_container_width=True)
+                # Extração das métricas (FMP já devolve os nomes certos sempre)
+                rev_hist = df_is['revenue'] / 1e9
+                net_hist = df_is['netIncome'] / 1e9
+                ebitda_hist = df_is['ebitda'] / 1e9
+                cfo_hist = df_cf['operatingCashFlow'] / 1e9
+                fcf_hist = df_cf['freeCashFlow'] / 1e9
 
-    except Exception as e:
-        st.warning(f"Erro ao processar os gráficos históricos: {e}")
+                # TTM do yfinance (tempo real)
+                ttm_rev = info.get("totalRevenue", 0) / 1e9
+                ttm_net = info.get("netIncomeToCommon", 0) / 1e9
+                ttm_ebitda = info.get("ebitda", 0) / 1e9
+                ttm_cfo = info.get("operatingCashflow", 0) / 1e9
+                ttm_fcf = info.get("freeCashflow", 0) / 1e9
+
+                # 2. Primeira linha de gráficos (Receita/Lucro e EBITDA)
+                col_g1, col_g2 = st.columns(2)
+
+                with col_g1:
+                    fig_res = go.Figure()
+                    fig_res.add_trace(go.Bar(x=anos_fin, y=rev_hist, name='Receita', marker_color='#1f77b4'))
+                    fig_res.add_trace(go.Bar(x=anos_fin, y=net_hist, name='Lucro Líquido', marker_color='#FFD700'))
+                    fig_res.add_trace(go.Bar(x=['TTM'], y=[ttm_rev], name='Receita (TTM)', marker_color='#1f77b4', opacity=0.6, showlegend=False))
+                    fig_res.add_trace(go.Bar(x=['TTM'], y=[ttm_net], name='Lucro (TTM)', marker_color='#FFD700', opacity=0.6, showlegend=False))
+                    fig_res.update_layout(title="Receita vs Lucro Líquido", barmode='group', template='plotly_dark', height=400, margin=dict(t=50, b=20))
+                    st.plotly_chart(fig_res, use_container_width=True)
+
+                with col_g2:
+                    fig_ebitda = go.Figure()
+                    fig_ebitda.add_trace(go.Bar(x=anos_fin, y=ebitda_hist, name='EBITDA', marker_color='#00CC96')) 
+                    fig_ebitda.add_trace(go.Bar(x=['TTM'], y=[ttm_ebitda], name='EBITDA (TTM)', marker_color='#00CC96', opacity=0.6, showlegend=False))
+                    fig_ebitda.update_layout(title="EBITDA", template='plotly_dark', height=400, margin=dict(t=50, b=20))
+                    st.plotly_chart(fig_ebitda, use_container_width=True)
+
+                # 3. Segunda linha de gráficos (CFO vs FCF)
+                col_g3, col_g4 = st.columns(2)
+                
+                with col_g3:
+                    fig_cf = go.Figure()
+                    fig_cf.add_trace(go.Bar(x=anos_cf, y=cfo_hist, name='CFO', marker_color='#1f77b4'))
+                    fig_cf.add_trace(go.Bar(x=anos_cf, y=fcf_hist, name='FCF', marker_color='#FFD700'))
+                    fig_cf.add_trace(go.Bar(x=['TTM'], y=[ttm_cfo], name='CFO (TTM)', marker_color='#1f77b4', opacity=0.6, showlegend=False))
+                    fig_cf.add_trace(go.Bar(x=['TTM'], y=[ttm_fcf], name='FCF (TTM)', marker_color='#FFD700', opacity=0.6, showlegend=False))
+                    fig_cf.update_layout(title="Cash From Operations vs Free Cash Flow (FCF)", barmode='group', template='plotly_dark', height=400, margin=dict(t=50, b=20))
+                    st.plotly_chart(fig_cf, use_container_width=True)
+            else:
+                st.warning("Dados não encontrados para este Ticker na FMP.")
+
+        except Exception as e:
+            st.error(f"Erro ao processar dados da API FMP: {e}")
+    else:
+        st.info("👈 Por favor, insere a tua API Key da Financial Modeling Prep na barra lateral para carregar os gráficos históricos.")
 
     st.divider()
 
