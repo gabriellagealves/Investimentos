@@ -7,143 +7,206 @@ import time
 
 st.set_page_config(page_title="Análise de Ações", layout="wide")
 
-# --- CACHE PARA ALPHA VANTAGE ---
+# --- TRUQUE DE MESTRE: CACHE ---
 @st.cache_data(ttl=3600)
 def obter_dados_alpha_vantage(ticker_symbol, api_key):
     url_is = f"https://www.alphavantage.co/query?function=INCOME_STATEMENT&symbol={ticker_symbol}&apikey={api_key}"
     res_is = requests.get(url_is).json()
-    time.sleep(2)
+    
+    time.sleep(2) # Pausa obrigatória de 2 segundos
+    
     url_cf = f"https://www.alphavantage.co/query?function=CASH_FLOW&symbol={ticker_symbol}&apikey={api_key}"
     res_cf = requests.get(url_cf).json()
+    
     return res_is, res_cf
 
-# --- BARRA LATERAL ---
+# --- BARRA LATERAL PARA A API KEY ---
 st.sidebar.header("Configurações")
-av_api_key = st.sidebar.text_input("API Key do Alpha Vantage", type="password")
-if st.sidebar.button("Limpar Cache"):
+av_api_key = st.sidebar.text_input("API Key do Alpha Vantage", type="password", help="Obtém a tua chave gratuita em alphavantage.co")
+st.sidebar.markdown("*(Limite da versão gratuita: 25 pesquisas por dia)*")
+if st.sidebar.button("Limpar Memória (Cache)"):
     st.cache_data.clear()
+    st.sidebar.success("Memória limpa!")
 
 st.title("Análise de Ações")
-ticker = st.text_input("Ticker da ação (ex: AAPL, AMD)")
+
+ticker = st.text_input("Ticker da ação (ex: AAPL, MSFT, NVDA, AMD)")
 
 if ticker:
     with st.spinner('A processar dados...'):
         acao = yf.Ticker(ticker)
         info = acao.info
-        # Puxar balanço e financeiro do yfinance para cálculos manuais
+        
+        # Puxar tabelas do yfinance para os cálculos manuais
         bs = acao.balance_sheet
         fin = acao.financials
 
-        st.subheader(f"{info.get('longName', 'N/D')} ({ticker.upper()})")
-        st.caption(f"Setor: {info.get('sector', 'N/D')} | Indústria: {info.get('industry', 'N/D')}")
+        nome = info.get("longName", "N/D")
+        st.subheader(f"{nome} ({ticker.upper()})")
+        st.caption(f"Setor: {info.get('sector', 'N/D')} | Indústria: {info.get('industry', 'N/D')} | País: {info.get('country', 'N/D')}")
+
         st.divider()
 
-        # ── 1. MACRO E NEGÓCIO (Resumido para o código não ficar gigante) ──
-        # ... (Mantém as tuas secções 1, 2 e 3 como tinhas) ...
+        # ── 1. MACRO E SETORIAL ──────────────────────────────────────────────
+        st.header("1. Macro e Setorial")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            tendencia = st.selectbox("Tendência do índice", ["Bull", "Bear", "Lateral"])
+        with col2:
+            sentimento = st.selectbox("Sentimento Mundial", ["Bull", "Bear", "Lateral"])
+        with col3:
+            pais = st.text_input("País", value=info.get("country", ""))
+
+        st.divider()
+
+        # ── 2. NEGÓCIO / EMPRESA ─────────────────────────────────────────────
+        st.header("2. Negócio / Empresa")
+
+        descricao = info.get("longBusinessSummary", "")
+        if descricao:
+            with st.expander("Descrição do negócio (fonte: Yahoo Finance)"):
+                st.write(descricao)
+
+        col1, col2 = st.columns(2)
+        with col1:
+            o_que_vende = st.text_area("O que vende?")
+            onde_opera = st.text_input("Onde opera?", value=info.get("country", ""))
+        with col2:
+            como_ganha = st.text_area("Como ganha dinheiro?")
+            lider = st.selectbox("É líder de mercado?", ["Sim", "Não", "Parcialmente"])
+
+        st.divider()
+
+        # ── 3. QUALITATIVA E RISCO ───────────────────────────────────────────
+        st.header("3. Qualitativa e Risco")
+
+        col1, col2 = st.columns(2)
+        with col1:
+            moat = st.selectbox("Tem MOAT?", ["Sim", "Não", "Parcialmente"])
+            moat_desc = st.text_area("Descreve o MOAT:")
+            lideranca = st.text_area("Liderança (CEO, diretores):")
+        with col2:
+            visao = st.text_area("Visão estratégica da gestão:")
+            acoes_empresa = st.selectbox("Ações da empresa (buybacks?)", ["Sim - reduz ações", "Não", "Dilui acionistas"])
+            riscos = st.text_area("Riscos identificados:")
+
+        st.divider()
 
         # ── 4. QUANTITATIVA ──────────────────────────────────────────────────
         st.header("4. Quantitativa")
-        
-        # 4.1 Evolução Histórica
-        st.subheader("4.1 Evolução: Financeira e Acionária")
+
+        # 4.1 Evolução Histórica (Gráficos com Alpha Vantage)
+        st.subheader("4.1 Evolução: Receita, Lucro, EBITDA e Cash Flow ($B)")
 
         if av_api_key:
             try:
                 is_data, cf_data = obter_dados_alpha_vantage(ticker, av_api_key)
 
                 if "annualReports" in is_data and "annualReports" in cf_data:
-                    df_is = pd.DataFrame(is_data["annualReports"][:5]).iloc[::-1]
-                    df_cf = pd.DataFrame(cf_data["annualReports"][:5]).iloc[::-1]
-                    anos = pd.to_datetime(df_is['fiscalDateEnding']).dt.year.astype(str)
+                    df_is = pd.DataFrame(is_data["annualReports"][:5])
+                    df_cf = pd.DataFrame(cf_data["annualReports"][:5])
 
-                    # Métricas Financeiras
-                    rev_hist = pd.to_numeric(df_is['totalRevenue']) / 1e9
-                    net_hist = pd.to_numeric(df_is['netIncome']) / 1e9
-                    cfo_hist = pd.to_numeric(df_cf['operatingCashflow']) / 1e9
-                    fcf_hist = (pd.to_numeric(df_cf['operatingCashflow']) - pd.to_numeric(df_cf['capitalExpenditures'])) / 1e9
+                    df_is['fiscalDateEnding'] = pd.to_datetime(df_is['fiscalDateEnding']).dt.year.astype(str)
+                    df_is = df_is.iloc[::-1].reset_index(drop=True)
+                    
+                    df_cf['fiscalDateEnding'] = pd.to_datetime(df_cf['fiscalDateEnding']).dt.year.astype(str)
+                    df_cf = df_cf.iloc[::-1].reset_index(drop=True)
 
-                    # Gráficos de Histórico Financeiro
+                    anos_fin = df_is['fiscalDateEnding']
+                    anos_cf = df_cf['fiscalDateEnding']
+
+                    rev_hist = pd.to_numeric(df_is['totalRevenue'], errors='coerce').fillna(0) / 1e9
+                    net_hist = pd.to_numeric(df_is['netIncome'], errors='coerce').fillna(0) / 1e9
+                    ebitda_hist = pd.to_numeric(df_is['ebitda'], errors='coerce').fillna(0) / 1e9
+
+                    cfo_hist = pd.to_numeric(df_cf['operatingCashflow'], errors='coerce').fillna(0) / 1e9
+                    capex_hist = pd.to_numeric(df_cf['capitalExpenditures'], errors='coerce').fillna(0) / 1e9
+                    fcf_hist = cfo_hist - capex_hist 
+
+                    ttm_rev = info.get("totalRevenue", 0) / 1e9
+                    ttm_net = info.get("netIncomeToCommon", 0) / 1e9
+                    ttm_ebitda = info.get("ebitda", 0) / 1e9
+                    ttm_cfo = info.get("operatingCashflow", 0) / 1e9
+                    ttm_fcf = info.get("freeCashflow", 0) / 1e9
+
                     col_g1, col_g2 = st.columns(2)
                     with col_g1:
-                        fig1 = go.Figure()
-                        fig1.add_trace(go.Bar(x=anos, y=rev_hist, name="Receita", marker_color='#1f77b4'))
-                        fig1.add_trace(go.Bar(x=anos, y=net_hist, name="Lucro", marker_color='#FFD700'))
-                        fig1.update_layout(title="Receita vs Lucro Líquido ($B)", barmode='group', template='plotly_dark')
-                        st.plotly_chart(fig1, use_container_width=True)
+                        fig_res = go.Figure()
+                        fig_res.add_trace(go.Bar(x=anos_fin, y=rev_hist, name='Receita', marker_color='#1f77b4'))
+                        fig_res.add_trace(go.Bar(x=anos_fin, y=net_hist, name='Lucro Líquido', marker_color='#FFD700'))
+                        fig_res.add_trace(go.Bar(x=['TTM'], y=[ttm_rev], name='Receita (TTM)', marker_color='#1f77b4', opacity=0.6, showlegend=False))
+                        fig_res.add_trace(go.Bar(x=['TTM'], y=[ttm_net], name='Lucro (TTM)', marker_color='#FFD700', opacity=0.6, showlegend=False))
+                        fig_res.update_layout(title="Receita vs Lucro Líquido", barmode='group', template='plotly_dark', height=400, margin=dict(t=50, b=20))
+                        st.plotly_chart(fig_res, use_container_width=True)
 
                     with col_g2:
-                        fig2 = go.Figure()
-                        fig2.add_trace(go.Bar(x=anos, y=cfo_hist, name="CFO", marker_color='#1f77b4'))
-                        fig2.add_trace(go.Bar(x=anos, y=fcf_hist, name="FCF", marker_color='#00CC96'))
-                        fig2.update_layout(title="CFO vs Free Cash Flow ($B)", barmode='group', template='plotly_dark')
-                        st.plotly_chart(fig2, use_container_width=True)
+                        fig_ebitda = go.Figure()
+                        fig_ebitda.add_trace(go.Bar(x=anos_fin, y=ebitda_hist, name='EBITDA', marker_color='#00CC96')) 
+                        fig_ebitda.add_trace(go.Bar(x=['TTM'], y=[ttm_ebitda], name='EBITDA (TTM)', marker_color='#00CC96', opacity=0.6, showlegend=False))
+                        fig_ebitda.update_layout(title="EBITDA", template='plotly_dark', height=400, margin=dict(t=50, b=20))
+                        st.plotly_chart(fig_ebitda, use_container_width=True)
 
-                    # 4.1.2 Histograma de Ações (Ordinary Shares Number)
-                    st.write("### Evolução das Ações em Circulação")
-                    if 'Ordinary Shares Number' in bs.index:
-                        shares_series = bs.loc['Ordinary Shares Number'].sort_index(ascending=True)
-                        anos_shares = shares_series.index.year.astype(str)
-                        val_shares = shares_series.values / 1e6 # Milhões de ações
-
-                        fig_shares = go.Figure()
-                        fig_shares.add_trace(go.Bar(x=anos_shares, y=val_shares, marker_color='#8E44AD', name="Shares"))
-                        fig_shares.update_layout(title="Ordinary Shares Number (Milhões)", template='plotly_dark', height=300)
-                        st.plotly_chart(fig_shares, use_container_width=True)
+                    col_g3, col_g4 = st.columns(2)
+                    with col_g3:
+                        fig_cf = go.Figure()
+                        fig_cf.add_trace(go.Bar(x=anos_cf, y=cfo_hist, name='CFO', marker_color='#1f77b4'))
+                        fig_cf.add_trace(go.Bar(x=anos_cf, y=fcf_hist, name='FCF', marker_color='#FFD700'))
+                        fig_cf.add_trace(go.Bar(x=['TTM'], y=[ttm_cfo], name='CFO (TTM)', marker_color='#1f77b4', opacity=0.6, showlegend=False))
+                        fig_cf.add_trace(go.Bar(x=['TTM'], y=[ttm_fcf], name='FCF (TTM)', marker_color='#FFD700', opacity=0.6, showlegend=False))
+                        fig_cf.update_layout(title="Cash From Operations vs Free Cash Flow (FCF)", barmode='group', template='plotly_dark', height=400, margin=dict(t=50, b=20))
+                        st.plotly_chart(fig_cf, use_container_width=True)
                 else:
-                    st.warning("Limite de API ou Ticker não encontrado no Alpha Vantage.")
-            except Exception as e:
-                st.error(f"Erro Alpha Vantage: {e}")
+                    if "annualReports" not in is_data:
+                        st.warning(f"O Alpha Vantage bloqueou o pedido de Receitas: {is_data.get('Information', is_data.get('Note', is_data))}")
+                    elif "annualReports" not in cf_data:
+                        st.warning(f"O Alpha Vantage bloqueou o pedido de Cash Flow: {cf_data.get('Information', cf_data.get('Note', cf_data))}")
 
-        # 4.2 Métricas de Eficiência e Saúde (CÁLCULOS MANUAIS)
+            except Exception as e:
+                st.error(f"Erro ao processar dados da API Alpha Vantage: {e}")
+        else:
+            st.info("👈 Por favor, insere a tua API Key do Alpha Vantage na barra lateral para carregar os gráficos históricos.")
+
+        # --- NOVO: GRÁFICO DAS AÇÕES EM CIRCULAÇÃO ---
+        st.subheader("4.1.2 Evolução das Ações em Circulação (Diluição vs Buybacks)")
+        try:
+            if 'Ordinary Shares Number' in bs.index:
+                shares_series = bs.loc['Ordinary Shares Number'].dropna().sort_index(ascending=True)
+                anos_shares = shares_series.index.year.astype(str)
+                val_shares = shares_series.values / 1e6 # Passar para milhões
+
+                fig_shares = go.Figure()
+                fig_shares.add_trace(go.Bar(x=anos_shares, y=val_shares, marker_color='#8E44AD', name='Shares'))
+                fig_shares.update_layout(title="Ordinary Shares Number (Milhões)", template='plotly_dark', height=350, margin=dict(t=50, b=20))
+                st.plotly_chart(fig_shares, use_container_width=True)
+            else:
+                st.info("Não foi possível encontrar o histórico de 'Ordinary Shares Number' para esta empresa.")
+        except Exception as e:
+            st.warning(f"Erro ao desenhar o gráfico de ações: {e}")
+
         st.divider()
-        st.subheader("4.2 Eficiência, ROIC e Liquidez")
+
+        # 4.2 Métricas Atuais de Crescimento e CCC
+        st.subheader("4.2 Métricas Atuais de Crescimento e Eficiência")
         
         col1, col2, col3, col4 = st.columns(4)
+        cfo = info.get("operatingCashflow", None)
+        col1.metric("Cash from Operations (CFO)", f"${cfo/1e9:.1f}B" if cfo else "N/D")
 
-        # --- CÁLCULO ROIC ---
-        try:
-            ebit = fin.loc['EBIT'].iloc
-            tax_provision = fin.loc['Tax Provision'].iloc
-            net_income_before_tax = fin.loc['Pretax Income'].iloc
-            tax_rate = tax_provision / net_income_before_tax if net_income_before_tax > 0 else 0.21
-            nopat = ebit * (1 - tax_rate)
-            
-            invested_capital = (bs.loc['Total Assets'].iloc - bs.loc['Current Liabilities'].iloc) 
-            roic = (nopat / invested_capital) * 100
-            col1.metric("ROIC (Manual)", f"{roic:.1f}%")
-        except:
-            col1.metric("ROIC (Manual)", "N/D")
+        crescimento_receita = info.get("revenueGrowth", None)
+        col2.metric("Crescimento Receita (YoY)", f"{crescimento_receita*100:.1f}%" if crescimento_receita else "N/D")
 
-        # --- CÁLCULO CASH CONVERSION CYCLE (CCC) ---
+        crescimento_lucro = info.get("earningsGrowth", None)
+        col3.metric("Crescimento Lucro (YoY)", f"{crescimento_lucro*100:.1f}%" if crescimento_lucro else "N/D")
+
+        # --- NOVO: CÁLCULO MANUAL DO CCC ---
         try:
-            inventory = bs.loc['Inventory'].iloc
-            cogs = abs(fin.loc['Cost Of Revenue'].iloc)
-            receivables = bs.loc['Receivables'].iloc
+            inventory = bs.loc['Inventory'].iloc if 'Inventory' in bs.index else 0
+            cogs = abs(fin.loc['Cost Of Revenue'].iloc) if 'Cost Of Revenue' in fin.index else 0
+            receivables = bs.loc['Accounts Receivable'].iloc if 'Accounts Receivable' in bs.index else (bs.loc['Receivables'].iloc if 'Receivables' in bs.index else 0)
             revenue = fin.loc['Total Revenue'].iloc
-            payables = bs.loc['Accounts Payable'].iloc
+            payables = bs.loc['Accounts Payable'].iloc if 'Accounts Payable' in bs.index else 0
 
-            dio = (inventory / cogs) * 365
-            dso = (receivables / revenue) * 365
-            dpo = (payables / cogs) * 365
-            ccc = dio + dso - dpo
-            col2.metric("Cash Conv. Cycle", f"{int(ccc)} dias", help=f"DIO: {int(dio)} | DSO: {int(dso)} | DPO: {int(dpo)}")
-        except:
-            col2.metric("Cash Conv. Cycle", "N/D")
-
-        # --- CÁLCULO INTEREST COVERAGE RATIO ---
-        try:
-            ebit = fin.loc['EBIT'].iloc
-            interest_exp = abs(fin.loc['Interest Expense'].iloc)
-            if interest_exp > 0:
-                icr = ebit / interest_exp
-                col3.metric("Interest Coverage", f"{icr:.1f}x")
-            else:
-                col3.metric("Interest Coverage", "Seguro (Sem Dívida)")
-        except:
-            col3.metric("Interest Coverage", "N/D")
-
-        # Margem Líquida (yfinance)
-        mn = info.get("profitMargins", 0) * 100
-        col4.metric("Margem Líquida", f"{mn:.1f}%")
-
-        # ... (Mantém o resto das tuas secções 5 e 6) ...
+            if cogs > 0 and revenue > 0:
+                dio = (inventory / cogs) * 365
+                dso = (receivables / revenue) * 365
+                dpo = (
