@@ -177,18 +177,15 @@ if ticker:
 
     st.divider()
 
-    # Manter os indicadores atuais (métricas de resumo)
+    # 4.2 Cresciemento
     st.subheader("4.2 Métricas Atuais de Crescimento")
     
-    col1, col2, col3 = st.columns(3)
-    cfo = info.get("operatingCashflow", None)
-    col1.metric("Cash from Operations (CFO)", f"${cfo/1e9:.1f}B" if cfo else "N/D")
-
+    col1, col2 = st.columns(2)
     crescimento_receita = info.get("revenueGrowth", None)
-    col2.metric("Crescimento Receita (YoY)", f"{crescimento_receita*100:.1f}%" if crescimento_receita else "N/D")
+    col1.metric("Crescimento Receita (YoY)", f"{crescimento_receita*100:.1f}%" if crescimento_receita else "N/D")
 
     crescimento_lucro = info.get("earningsGrowth", None)
-    col3.metric("Crescimento Lucro (YoY)", f"{crescimento_lucro*100:.1f}%" if crescimento_lucro else "N/D")
+    col2.metric("Crescimento Lucro (YoY)", f"{crescimento_lucro*100:.1f}%" if crescimento_lucro else "N/D")
 
     # 4.3 Performance
     st.subheader("4.3 Métricas de Performance")
