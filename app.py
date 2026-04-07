@@ -87,29 +87,33 @@ if ticker:
 
         # --- GRÁFICO 1: RECEITA VS LUCRO ---
         fig1 = go.Figure()
-        fig1.add_trace(go.Bar(x=anos, y=df_fin['Total Revenue']/1e9, name='Receita', marker_color='#1f77b4'))
-        fig1.add_trace(go.Bar(x=anos, y=df_fin['Net Income']/1e9, name='Lucro Líquido', marker_color='#FFD700'))
-        # TTM
+        # Se a coluna não existir, cria uma lista de zeros
+        rev_hist = df_fin['Total Revenue']/1e9 if 'Total Revenue' in df_fin.columns else * len(anos)
+        net_hist = df_fin['Net Income']/1e9 if 'Net Income' in df_fin.columns else * len(anos)
+        
+        fig1.add_trace(go.Bar(x=anos, y=rev_hist, name='Receita', marker_color='#1f77b4'))
+        fig1.add_trace(go.Bar(x=anos, y=net_hist, name='Lucro Líquido', marker_color='#FFD700'))
+        
         fig1.add_trace(go.Bar(x=ttm_label, y=ttm_rev, name='Receita (TTM)', marker_color='#1f77b4', opacity=0.6, showlegend=False))
         fig1.add_trace(go.Bar(x=ttm_label, y=ttm_net, name='Lucro (TTM)', marker_color='#FFD700', opacity=0.6, showlegend=False))
         fig1.update_layout(title="Receita vs Lucro Líquido ($B)", barmode='group', template='plotly_dark', height=350)
 
         # --- GRÁFICO 2: CFO VS FCF ---
         fig2 = go.Figure()
-        # Verificação de segurança para colunas de fluxo de caixa
+        # CORREÇÃO AQUI: Adicionado o antes do * len(anos)
         cfo_hist = df_cf['Operating Cash Flow']/1e9 if 'Operating Cash Flow' in df_cf.columns else * len(anos)
         fcf_hist = df_cf['Free Cash Flow']/1e9 if 'Free Cash Flow' in df_cf.columns else * len(anos)
         
         fig2.add_trace(go.Bar(x=anos, y=cfo_hist, name='CFO', marker_color='#1f77b4'))
         fig2.add_trace(go.Bar(x=anos, y=fcf_hist, name='FCF', marker_color='#FFD700'))
-        # TTM
+        
         fig2.add_trace(go.Bar(x=ttm_label, y=ttm_cfo, name='CFO (TTM)', marker_color='#1f77b4', opacity=0.6, showlegend=False))
         fig2.add_trace(go.Bar(x=ttm_label, y=ttm_fcf, name='FCF (TTM)', marker_color='#FFD700', opacity=0.6, showlegend=False))
         fig2.update_layout(title="CFO vs Free Cash Flow ($B)", barmode='group', template='plotly_dark', height=350)
 
         # --- GRÁFICO 3: EBITDA ---
         fig3 = go.Figure()
-        # RESOLUÇÃO DO ERRO: Adicionado o fallback * len(anos)
+        # CORREÇÃO AQUI: Adicionado o antes do * len(anos)
         ebitda_hist = df_fin['EBITDA'] / 1e9 if 'EBITDA' in df_fin.columns else * len(anos)
         
         fig3.add_trace(go.Bar(x=anos, y=ebitda_hist, name='EBITDA', marker_color='#00CC96'))
@@ -127,7 +131,7 @@ if ticker:
     except Exception as e:
         st.error(f"Erro ao processar gráficos: {e}")
 
-        st.divider()
+    st.divider()
     
     # --- MÉTRICAS DE RESUMO (O que tinhas antes + CCR) ---
     st.subheader("Métricas Atuais e Crescimento")
