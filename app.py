@@ -63,9 +63,9 @@ if ticker:
         st.header("1. Macro e Setorial")
         col1, col2, col3 = st.columns(3)
         with col1:
-            tendencia = st.selectbox("Tendência do índice", ["Bull", "Bear", "Lateral"])
+            tendencia = st.selectbox("Tendência do índice", ["Seleção", "Bull", "Bear", "Lateral"])
         with col2:
-            sentimento = st.selectbox("Sentimento Mundial", ["Bull", "Bear", "Lateral"])
+            sentimento = st.selectbox("Sentimento Mundial", ["Seleção", "Bull", "Bear", "Lateral"])
         with col3:
             pais = st.text_input("País", value=info.get("country", ""))
 
@@ -74,7 +74,7 @@ if ticker:
         # ── 2. NEGÓCIO / EMPRESA ─────────────────────────────────────────────
         st.header("2. Negócio / Empresa")
 
-        descricao = info.get("longBusinessSummary", "")
+        descricao = info.get("BusinessSummary", "")
         if descricao:
             with st.expander("Descrição do negócio (fonte: Yahoo Finance)"):
                 st.write(descricao)
