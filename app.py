@@ -63,99 +63,69 @@ if ticker:
 
     st.divider()
 
- # ── 4. QUANTITATIVA ──────────────────────────────────────────────────
+# ── 4. QUANTITATIVA ──────────────────────────────────────────────────
     st.header("4. Quantitativa")
 
-    # 4.1 Evolução Histórica e TTM
-    st.subheader("4.1 Gráficos de Evolução (Anual vs TTM)")
+    # 4.1 Evolução Anual vs TTM (Gráfico Unificado)
+    st.subheader("4.1 Evolução: Receita vs Lucro Líquido ($B)")
 
     try:
-        # --- PREPARAÇÃO DOS DADOS ---
+        # 1. Obter Histórico Anual e formatar
         df_fin = acao.financials.T.sort_index(ascending=True)
-        df_cf = acao.cashflow.T.sort_index(ascending=True)
         
-        # Criamos o índice de anos (ex: 2021, 2022...)
-        anos = df_fin.index.year.astype(str)
-
-        # Dados TTM extraídos do 'info'
-        ttm_label = ['TTM']
-        ttm_rev = [info.get("totalRevenue", 0) / 1e9]
-        ttm_net = [info.get("netIncomeToCommon", 0) / 1e9]
-        ttm_ebitda = [info.get("ebitda", 0) / 1e9]
-        ttm_cfo = [info.get("operatingCashflow", 0) / 1e9]
-        ttm_fcf = [info.get("freeCashflow", 0) / 1e9]
-
-        # --- GRÁFICO 1: RECEITA VS LUCRO ---
-               fig1 = go.Figure()
-        fig1.add_trace(go.Bar(x=anos, y=df_fin['Total Revenue']/1e9, name='Receita', marker_color='#1f77b4'))
-        fig1.add_trace(go.Bar(x=anos, y=df_fin['Net Income']/1e9, name='Lucro Líquido', marker_color='#FFD700'))
-        # Adicionar TTM
-        fig1.add_trace(go.Bar(x=ttm_label, y=ttm_rev, name='Receita (TTM)', marker_color='#1f77b4', opacity=0.7, showlegend=False))
-        fig1.add_trace(go.Bar(x=ttm_label, y=ttm_net, name='Lucro (TTM)', marker_color='#FFD700', opacity=0.7, showlegend=False))
+        # Criar DataFrame base com os anos
+        hist_data = pd.DataFrame({
+            'Receita': df_fin['Total Revenue'] / 1e9,
+            'Lucro Líquido': df_fin['Net Income'] / 1e9
+        })
         
-        fig1.update_layout(title="Receita vs Lucro Líquido ($B)", barmode='group', template='plotly_dark', height=350, margin=dict(t=30, b=10))
-        # TTM
-        fig1.add_trace(go.Bar(x=ttm_label, y=ttm_rev, name='Receita (TTM)', marker_color='#1f77b4', opacity=0.6, showlegend=False))
-        fig1.add_trace(go.Bar(x=ttm_label, y=ttm_net, name='Lucro (TTM)', marker_color='#FFD700', opacity=0.6, showlegend=False))
-        fig1.update_layout(title="Receita vs Lucro Líquido ($B)", barmode='group', template='plotly_dark', height=350)
+        # Converter datas para strings de ANOS apenas (evita meses no eixo X)
+        hist_data.index = hist_data.index.year.astype(str)
 
-        # --- GRÁFICO 2: CFO VS FCF ---
-        fig2 = go.Figure()
-        # CORREÇÃO AQUI: Adicionado o antes do * len(anos)
-        cfo_hist = df_cf['Operating Cash Flow']/1e9 if 'Operating Cash Flow' in df_cf.columns else * len(anos)
-        fcf_hist = df_cf['Free Cash Flow']/1e9 if 'Free Cash Flow' in df_cf.columns else * len(anos)
+        # 2. Obter Dados TTM (Trailing Twelve Months) do dicionário info
+        ttm_rev = info.get("totalRevenue", 0) / 1e9
+        ttm_net = info.get("netIncomeToCommon", 0) / 1e9
         
-        fig2.add_trace(go.Bar(x=anos, y=cfo_hist, name='CFO', marker_color='#1f77b4'))
-        fig2.add_trace(go.Bar(x=anos, y=fcf_hist, name='FCF', marker_color='#FFD700'))
-        
-        fig2.add_trace(go.Bar(x=ttm_label, y=ttm_cfo, name='CFO (TTM)', marker_color='#1f77b4', opacity=0.6, showlegend=False))
-        fig2.add_trace(go.Bar(x=ttm_label, y=ttm_fcf, name='FCF (TTM)', marker_color='#FFD700', opacity=0.6, showlegend=False))
-        fig2.update_layout(title="CFO vs Free Cash Flow ($B)", barmode='group', template='plotly_dark', height=350)
+        # Adicionar a linha TTM ao DataFrame
+        ttm_df = pd.DataFrame({'Receita': [ttm_rev], 'Lucro Líquido': [ttm_net]}, index=['TTM'])
+        df_final = pd.concat([hist_data, ttm_df])
 
-        # --- GRÁFICO 3: EBITDA ---
-        fig3 = go.Figure()
-        # CORREÇÃO AQUI: Adicionado o antes do * len(anos)
-        ebitda_hist = df_fin['EBITDA'] / 1e9 if 'EBITDA' in df_fin.columns else * len(anos)
-        
-        fig3.add_trace(go.Bar(x=anos, y=ebitda_hist, name='EBITDA', marker_color='#00CC96'))
-        fig3.add_trace(go.Bar(x=ttm_label, y=ttm_ebitda, name='EBITDA (TTM)', marker_color='#00CC96', opacity=0.6, showlegend=False))
-        fig3.update_layout(title="EBITDA ($B)", template='plotly_dark', height=350)
+        # 3. Construir o gráfico com Plotly
+        fig = go.Figure()
 
-        # Exibição
-        st.plotly_chart(fig1, use_container_width=True)
-        col_g1, col_g2 = st.columns(2)
-        with col_g1:
-            st.plotly_chart(fig2, use_container_width=True)
-        with col_g2:
-            st.plotly_chart(fig3, use_container_width=True)
+        # Barra de Receita (Azul)
+        fig.add_trace(go.Bar(
+            x=df_final.index,
+            y=df_final['Receita'],
+            name='Receita',
+            marker_color='#1f77b4' # Azul standard
+        ))
+
+        # Barra de Lucro (Amarelo/Dourado)
+        fig.add_trace(go.Bar(
+            x=df_final.index,
+            y=df_final['Lucro Líquido'],
+            name='Lucro Líquido',
+            marker_color='#FFD700' # Dourado/Amarelo
+        ))
+
+        # Ajustes de design do gráfico
+        fig.update_layout(
+            barmode='group', # Barras lado a lado
+            template='plotly_dark',
+            xaxis_title=None,
+            yaxis_title="Biliões de USD ($)",
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+            margin=dict(l=10, r=10, t=30, b=10),
+            height=450
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
 
     except Exception as e:
-        st.error(f"Erro ao processar gráficos: {e}")
+        st.warning(f"Nota: Alguns dados históricos ou TTM não estão disponíveis para este ticker. Erro: {e}")
 
     st.divider()
-    
-    # --- MÉTRICAS DE RESUMO (O que tinhas antes + CCR) ---
-    st.subheader("Métricas Atuais e Crescimento")
-    
-    c1, c2, c3, c4 = st.columns(4)
-    
-    cfo_val = info.get("operatingCashflow", None)
-    c1.metric("Cash from Operations (CFO)", f"${cfo_val/1e9:.1f}B" if cfo_val else "N/D")
-
-    rev_growth = info.get("revenueGrowth", None)
-    c2.metric("Crescimento Receita (YoY)", f"{rev_growth*100:.1f}%" if rev_growth else "N/D")
-
-    earn_growth = info.get("earningsGrowth", None)
-    c3.metric("Crescimento Lucro (YoY)", f"{earn_growth*100:.1f}%" if earn_growth else "N/D")
-
-    # Cálculo do CCR (Cash Conversion Ratio)
-    lucro_val = info.get("netIncomeToCommon", None)
-    fcf_val = info.get("freeCashflow", None)
-    if fcf_val and lucro_val and lucro_val != 0:
-        ccr = fcf_val / lucro_val
-        c4.metric("CCR (FCF / Lucro)", f"{ccr:.2f}x")
-    else:
-        c4.metric("CCR (FCF / Lucro)", "N/D")
 
      # Manter os indicadores atuais (métricas de resumo)
     st.subheader("Métricas Atuais de Crescimento")
