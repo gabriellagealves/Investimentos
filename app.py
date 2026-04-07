@@ -92,26 +92,27 @@ if ticker:
                 df_is = pd.DataFrame(is_data["annualReports"][:5])
                 df_cf = pd.DataFrame(cf_data["annualReports"][:5])
 
-                # O Alpha Vantage traz as datas do mais recente para o mais antigo. Vamos inverter (ascending)
-                df_is['fiscalDateEnding'] = pd.to_datetime(df_is['fiscalDateEnding'])
-                df_is = df_is.sort_values('fiscalDateEnding')
+                # Limpeza das Datas (O AlphaVantage devolve YYYY-MM-DD, queremos só o ano)
+                # Invertemos também a ordem para ficar do mais antigo para o mais recente (ascending)
+                df_is['fiscalDateEnding'] = pd.to_datetime(df_is['fiscalDateEnding']).dt.year.astype(str)
+                df_is = df_is.iloc[::-1].reset_index(drop=True) # Inverte a ordem do dataframe
                 
-                df_cf['fiscalDateEnding'] = pd.to_datetime(df_cf['fiscalDateEnding'])
-                df_cf = df_cf.sort_values('fiscalDateEnding')
+                df_cf['fiscalDateEnding'] = pd.to_datetime(df_cf['fiscalDateEnding']).dt.year.astype(str)
+                df_cf = df_cf.iloc[::-1].reset_index(drop=True)
 
-                anos_fin = df_is['fiscalDateEnding'].dt.year.astype(str)
-                anos_cf = df_cf['fiscalDateEnding'].dt.year.astype(str)
+                anos_fin = df_is['fiscalDateEnding']
+                anos_cf = df_cf['fiscalDateEnding']
 
-                # O Alpha Vantage traz os números como texto (string). Precisamos converter para números.
+                # O Alpha Vantage traz os números como texto ('None' ou '12345'). Precisamos converter para numérico.
                 rev_hist = pd.to_numeric(df_is['totalRevenue'], errors='coerce').fillna(0) / 1e9
                 net_hist = pd.to_numeric(df_is['netIncome'], errors='coerce').fillna(0) / 1e9
                 ebitda_hist = pd.to_numeric(df_is['ebitda'], errors='coerce').fillna(0) / 1e9
 
                 cfo_hist = pd.to_numeric(df_cf['operatingCashflow'], errors='coerce').fillna(0) / 1e9
                 capex_hist = pd.to_numeric(df_cf['capitalExpenditures'], errors='coerce').fillna(0) / 1e9
-                fcf_hist = cfo_hist - capex_hist # Cálculo manual do Free Cash Flow
+                fcf_hist = cfo_hist - capex_hist # Free Cash Flow = Operating Cash Flow - CapEx
 
-                # TTM do yfinance (tempo real)
+                # TTM do yfinance (tempo real) para manter as barras extra no fim
                 ttm_rev = info.get("totalRevenue", 0) / 1e9
                 ttm_net = info.get("netIncomeToCommon", 0) / 1e9
                 ttm_ebitda = info.get("ebitda", 0) / 1e9
@@ -149,8 +150,9 @@ if ticker:
                     fig_cf.update_layout(title="Cash From Operations vs Free Cash Flow (FCF)", barmode='group', template='plotly_dark', height=400, margin=dict(t=50, b=20))
                     st.plotly_chart(fig_cf, use_container_width=True)
             else:
-                # Se não houver a chave 'annualReports', mostramos o que a API devolveu (ex: Limite de uso atingido)
-                st.warning(f"Resposta do Alpha Vantage: {is_data}")
+                # Mostrar o erro limpo caso a API bloqueie
+                erro_msg = is_data.get("Information", is_data.get("Error Message", "Dados não encontrados."))
+                st.warning(f"Aviso Alpha Vantage: {erro_msg}")
 
         except Exception as e:
             st.error(f"Erro ao processar dados da API Alpha Vantage: {e}")
