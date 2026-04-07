@@ -125,9 +125,6 @@ if ticker:
             cfo_col = df_cf.get('Operating Cash Flow')
             fcf_col = df_cf.get('Free Cash Flow')
             
-            cfo_hist = cfo_col / 1e9 if cfo_col is not None else * len(anos_cf)
-            fcf_hist = fcf_col / 1e9 if fcf_col is not None else * len(anos_cf)
-            
             fig_cf = go.Figure()
             # Histórico
             fig_cf.add_trace(go.Bar(x=anos_cf, y=cfo_hist, name='CFO', marker_color='#1f77b4')) # Azul
