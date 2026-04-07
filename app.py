@@ -143,20 +143,21 @@ if ticker:
                         st.plotly_chart(fig_res, use_container_width=True)
 
                     with col_g2:
+                        fig_cf = go.Figure()
+                        fig_cf.add_trace(go.Bar(x=anos_cf, y=cfo_hist, name='CFO', marker_color='#FF9F1C'))
+                        fig_cf.add_trace(go.Bar(x=anos_cf, y=fcf_hist, name='FCF', marker_color='#2EC4B6'))
+                        fig_cf.add_trace(go.Bar(x=['TTM'], y=[ttm_cfo], name='CFO (TTM)', marker_color='#FF9F1C', opacity=0.6, showlegend=False)) #Laranja (#FF9F1C)
+                        fig_cf.add_trace(go.Bar(x=['TTM'], y=[ttm_fcf], name='FCF (TTM)', marker_color='#2EC4B6', opacity=0.6, showlegend=False)) #Ciano (#2EC4B6)
+                        fig_cf.update_layout(title="Cash From Operations (CFO) vs Free Cash Flow (FCF)", barmode='group', template='plotly_dark', height=400, margin=dict(t=50, b=20))
+                        st.plotly_chart(fig_cf, use_container_width=True)
+
+                    with col_g3:
                         fig_ebitda = go.Figure()
                         fig_ebitda.add_trace(go.Bar(x=anos_fin, y=ebitda_hist, name='EBITDA', marker_color='#00CC96')) 
                         fig_ebitda.add_trace(go.Bar(x=['TTM'], y=[ttm_ebitda], name='EBITDA (TTM)', marker_color='#00CC96', opacity=0.6, showlegend=False))
                         fig_ebitda.update_layout(title="EBITDA", template='plotly_dark', height=400, margin=dict(t=50, b=20))
                         st.plotly_chart(fig_ebitda, use_container_width=True)
 
-                    with col_g3:
-                        fig_cf = go.Figure()
-                        fig_cf.add_trace(go.Bar(x=anos_cf, y=cfo_hist, name='CFO', marker_color='#1f77b4'))
-                        fig_cf.add_trace(go.Bar(x=anos_cf, y=fcf_hist, name='FCF', marker_color='#FFD700'))
-                        fig_cf.add_trace(go.Bar(x=['TTM'], y=[ttm_cfo], name='CFO (TTM)', marker_color='#1f77b4', opacity=0.6, showlegend=False))
-                        fig_cf.add_trace(go.Bar(x=['TTM'], y=[ttm_fcf], name='FCF (TTM)', marker_color='#FFD700', opacity=0.6, showlegend=False))
-                        fig_cf.update_layout(title="Cash From Operations vs Free Cash Flow (FCF)", barmode='group', template='plotly_dark', height=400, margin=dict(t=50, b=20))
-                        st.plotly_chart(fig_cf, use_container_width=True)
                 else:
                     if "annualReports" not in is_data:
                         st.warning(f"O Alpha Vantage bloqueou o pedido de Receitas: {is_data.get('Information', is_data.get('Note', is_data))}")
@@ -191,15 +192,13 @@ if ticker:
         # 4.2 Métricas Atuais de Crescimento e CCC
         st.subheader("4.2 Métricas Atuais de Crescimento e Eficiência")
         
-        col1, col2, col3, col4 = st.columns(4)
-        cfo = info.get("operatingCashflow", None)
-        col1.metric("Cash from Operations (CFO)", f"${cfo/1e9:.1f}B" if cfo else "N/D")
-
+        col1, col2, col3 = st.columns(4)
+       
         crescimento_receita = info.get("revenueGrowth", None)
-        col2.metric("Crescimento Receita (YoY)", f"{crescimento_receita*100:.1f}%" if crescimento_receita else "N/D")
+        col1.metric("Crescimento Receita (YoY)", f"{crescimento_receita*100:.1f}%" if crescimento_receita else "N/D")
 
         crescimento_lucro = info.get("earningsGrowth", None)
-        col3.metric("Crescimento Lucro (YoY)", f"{crescimento_lucro*100:.1f}%" if crescimento_lucro else "N/D")
+        col2.metric("Crescimento Lucro (YoY)", f"{crescimento_lucro*100:.1f}%" if crescimento_lucro else "N/D")
 
         # --- NOVO: CÁLCULO MANUAL DO CCC ---
         try:
@@ -214,11 +213,11 @@ if ticker:
                 dso = (receivables / revenue) * 365
                 dpo = (payables / cogs) * 365
                 ccc = dio + dso - dpo
-                col4.metric("Cash Conv. Cycle (CCC)", f"{int(ccc)} dias")
+                col3.metric("Cash Conv. Cycle (CCC)", f"{int(ccc)} dias")
             else:
                 col4.metric("Cash Conv. Cycle (CCC)", "N/D")
         except:
-            col4.metric("Cash Conv. Cycle (CCC)", "N/D")
+            col3.metric("Cash Conv. Cycle (CCC)", "N/D")
 
         # 4.3 Performance
         st.subheader("4.3 Métricas de Performance")
