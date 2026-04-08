@@ -103,7 +103,8 @@ if ticker:
             como_ganha = st.text_area("Como ganha dinheiro?", placeholder="Explicar numa frase curta")
             lider = st.selectbox("É líder de mercado?", ["Preencher", "Sim", "Não"])
 
-        if lider == "Sim":
+            # Alinhamento corrigido (as condições ficam dentro da coluna 2)
+            if lider == "Sim":
                 qual_lider = st.text_input("Qual?", placeholder="Indicar qual o mercado")
             elif lider == "Não":
                 quem_lider = st.text_input("Qual é?", placeholder="Indicar o ticker da concorrente")
@@ -115,9 +116,12 @@ if ticker:
 
         col1, col2 = st.columns(2)
         with col1:
-            moat = st.selectbox("Tem MOAT?", ["Preencher", "Sim", "Não"], placeholder="Explicar numa frase curta"))
-        if moat == "Sim":
-            moat_desc = st.text_area("Descreve o MOAT:", placeholder="Tem uma marca forte? Tem custos de mudança altos? Possui efeitos de rede? (melhora com mais utilizadores)")
+            # Corrigido o erro do parêntesis a mais
+            moat = st.selectbox("Tem MOAT?", ["Preencher", "Sim", "Não"])
+            
+            if moat == "Sim":
+                moat_desc = st.text_area("Descreve o MOAT:", placeholder="Tem uma marca forte? Tem custos de mudança altos? Possui efeitos de rede? (melhora com mais utilizadores)")
+            
             lideranca = st.text_area("Liderança (CEO, diretores):")
         with col2:
             visao = st.text_area("Visão estratégica da gestão:")
