@@ -97,11 +97,16 @@ if ticker:
 
         col1, col2 = st.columns(2)
         with col1:
-            o_que_vende = st.text_area("O que vende?")
-            onde_opera = st.text_input("Onde opera?", value=info.get("country", ""))
+            o_que_vende = st.text_area("O que vende?", placeholder="Explicar numa frase curta")
+            onde_opera = st.text_input("Onde opera?", placeholder="Explicar numa frase curta")
         with col2:
-            como_ganha = st.text_area("Como ganha dinheiro?")
-            lider = st.selectbox("É líder de mercado?", ["Sim", "Não", "Parcialmente"])
+            como_ganha = st.text_area("Como ganha dinheiro?", placeholder="Explicar numa frase curta")
+            lider = st.selectbox("É líder de mercado?", ["Preencher", "Sim", "Não"])
+
+        if lider == "Sim":
+                qual_lider = st.text_input("Qual?", placeholder="Indicar qual o mercado")
+            elif lider == "Não":
+                quem_lider = st.text_input("Qual é?", placeholder="Indicar o ticker da concorrente")
 
         st.divider()
 
@@ -110,8 +115,9 @@ if ticker:
 
         col1, col2 = st.columns(2)
         with col1:
-            moat = st.selectbox("Tem MOAT?", ["Sim", "Não", "Parcialmente"])
-            moat_desc = st.text_area("Descreve o MOAT:")
+            moat = st.selectbox("Tem MOAT?", ["Preencher", "Sim", "Não"], placeholder="Explicar numa frase curta"))
+        if moat == "Sim":
+            moat_desc = st.text_area("Descreve o MOAT:", placeholder="Tem uma marca forte? Tem custos de mudança altos? Possui efeitos de rede? (melhora com mais utilizadores)")
             lideranca = st.text_area("Liderança (CEO, diretores):")
         with col2:
             visao = st.text_area("Visão estratégica da gestão:")
