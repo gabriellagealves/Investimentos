@@ -242,10 +242,10 @@ if ticker:
                     st.plotly_chart(fig_shares, use_container_width=True)
                 else:
                     st.info("Não foi possível encontrar o histórico de 'Ordinary Shares Number' para esta empresa.")
-                    st.text_area("📝 Notas — Ações em Circulação", placeholder="Observações sobre buybacks ou diluição...", height=100, key="notas_shares")
             except Exception as e:
                 st.warning(f"Erro ao desenhar o gráfico de ações: {e}")
 
+                st.text_area("📝 Notas — Ações em Circulação", placeholder="Observações sobre buybacks ou diluição...", height=100, key="notas_shares")
         st.divider()
 
         # 4.2 Métricas Atuais de Crescimento e CCC
