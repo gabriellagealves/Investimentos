@@ -4,7 +4,14 @@ import pandas as pd
 import plotly.graph_objects as go
 import requests
 import time
-
+#Gerar PDF
+import io
+from reportlab.lib.pagesizes import A4
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Table, TableStyle, HRFlowable
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib import colors
+from reportlab.lib.units import cm
+# ---- #
 st.set_page_config(page_title="Análise de Ações", layout="wide")
 
 # --- TRUQUE VISUAL: FORÇAR MAIÚSCULAS APENAS NO TICKER ---
@@ -19,6 +26,229 @@ st.markdown(
     unsafe_allow_html=True
 )
 
+# ✅ NOVO: Função para gerar o PDF
+def gerar_pdf(ticker, info, dados_formulario, figuras):
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4,
+                            rightMargin=2*cm, leftMargin=2*cm,
+                            topMargin=2*cm, bottomMargin=2*cm)
+    styles = getSampleStyleSheet()
+    
+    estilo_titulo = ParagraphStyle('Titulo', parent=styles['Title'], fontSize=18, spaceAfter=6)
+    estilo_h1 = ParagraphStyle('H1', parent=styles['Heading1'], fontSize=14, spaceBefore=12, spaceAfter=6, textColor=colors.HexColor('#1f77b4'))
+    estilo_h2 = ParagraphStyle('H2', parent=styles['Heading2'], fontSize=11, spaceBefore=8, spaceAfter=4)
+    estilo_normal = ParagraphStyle('Normal2', parent=styles['Normal'], fontSize=9, spaceAfter=4)
+    estilo_label = ParagraphStyle('Label', parent=styles['Normal'], fontSize=8, textColor=colors.grey)
+
+    story = []
+
+    nome = info.get("longName", ticker.upper())
+    story.append(Paragraph(f"Análise de Ações: {nome} ({ticker.upper()})", estilo_titulo))
+    story.append(Paragraph(f"Setor: {info.get('sector','N/D')} | Indústria: {info.get('industry','N/D')} | País: {info.get('country','N/D')}", estilo_normal))
+    story.append(HRFlowable(width="100%", thickness=1, color=colors.grey, spaceAfter=10))
+
+    def campo(label, valor):
+        if valor and str(valor).strip() and str(valor).strip() not in ["Preencher", ""]:
+            story.append(Paragraph(f"<b>{label}:</b> {valor}", estilo_normal))
+
+    story.append(Paragraph("1. Macro e Setorial", estilo_h1))
+    campo("Tendência do índice", dados_formulario.get("tendencia"))
+    campo("Sentimento Mundial", dados_formulario.get("sentimento"))
+    campo("Situação do País", dados_formulario.get("sit_pais"))
+    campo("Estabilidade", dados_formulario.get("estabilidade"))
+    campo("PIB e Emprego", dados_formulario.get("pib_emprego"))
+    story.append(HRFlowable(width="100%", thickness=0.5, color=colors.lightgrey, spaceAfter=6))
+
+    story.append(Paragraph("2. Negócio / Empresa", estilo_h1))
+    descricao = info.get("longBusinessSummary", "")
+    if descricao:
+        story.append(Paragraph(descricao[:600] + "..." if len(descricao) > 600 else descricao, estilo_normal))
+        story.append(Spacer(1, 6))
+    campo("O que vende", dados_formulario.get("o_que_vende"))
+    campo("Onde opera", dados_formulario.get("onde_opera"))
+    campo("Como ganha dinheiro", dados_formulario.get("como_ganha"))
+    campo("Líder de mercado", dados_formulario.get("lider"))
+    story.append(HRFlowable(width="100%", thickness=0.5, color=colors.lightgrey, spaceAfter=6))
+
+    story.append(Paragraph("3. Qualitativa e Risco", estilo_h1))
+    campo("MOAT", dados_formulario.get("moat"))
+    campo("Descrição do MOAT", dados_formulario.get("moat_desc"))
+    campo("Liderança", dados_formulario.get("lideranca"))
+    campo("Visão Estratégica", dados_formulario.get("visao"))
+    campo("Ações (Buybacks)", dados_formulario.get("acoes_empresa"))
+    campo("Riscos", dados_formulario.get("riscos"))
+    story.append(HRFlowable(width="100%", thickness=0.5, color=colors.lightgrey, spaceAfter=6))
+
+    story.append(Paragraph("4. Quantitativa", estilo_h1))
+    story.append(Paragraph("4.1 Evolução: Financeira e Acionária", estilo_h2))
+
+    chaves_notas = ["notas_receita", "notas_cf", "notas_ebitda", "notas_shares"]
+    for i, fig in enumerate(figuras):
+        if fig is not None:
+            img_bytes = fig.to_image(format="png", width=700, height=300, scale=2)
+            img_buffer = io.BytesIO(img_bytes)
+            img = Image(img_buffer, width=16*cm, height=7*cm)
+            story.append(img)
+            nota = dados_formulario.get(chaves_notas[i], "")
+            if nota and nota.strip():
+                story.append(Paragraph(f"<i>Notas: {nota}</i>", estilo_label))
+            story.append(Spacer(1, 8))
+
+    story.append(Paragraph("4.2 Métricas de Crescimento e Eficiência", estilo_h2))
+    cres_rec = info.get("revenueGrowth", None)
+    cres_luc = info.get("earningsGrowth", None)
+    dados_metricas = [
+        ["Métrica", "Valor"],
+        ["Crescimento Receita (YoY)", f"{cres_rec*100:.1f}%" if cres_rec else "N/D"],
+        ["Crescimento Lucro (YoY)", f"{cres_luc*100:.1f}%" if cres_luc else "N/D"],
+        ["CCC", dados_formulario.get("ccc", "N/D")],
+    ]
+    t = Table(dados_metricas, colWidths=[9*cm, 7*cm])
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1f77b4')),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('FONTSIZE', (0,0), (-1,-1), 9),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.lightgrey),
+        ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#f5f5f5')]),
+    ]))
+    story.append(t)
+    story.append(Spacer(1, 8))
+
+    story.append(Paragraph("4.3 Performance", estilo_h2))
+    mg = info.get("grossMargins", None)
+    mo_v = info.get("operatingMargins", None)
+    mn = info.get("profitMargins", None)
+    roe = info.get("returnOnEquity", None)
+    dados_perf = [
+        ["Métrica", "Valor"],
+        ["Margem Bruta (TTM)", f"{mg*100:.1f}%" if mg else "N/D"],
+        ["Margem Operacional (TTM)", f"{mo_v*100:.1f}%" if mo_v else "N/D"],
+        ["Margem Líquida (TTM)", f"{mn*100:.1f}%" if mn else "N/D"],
+        ["ROE (TTM)", f"{roe*100:.1f}%" if roe else "N/D"],
+        ["ROIC", dados_formulario.get("roic", "N/D")],
+    ]
+    t2 = Table(dados_perf, colWidths=[9*cm, 7*cm])
+    t2.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1f77b4')),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('FONTSIZE', (0,0), (-1,-1), 9),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.lightgrey),
+        ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#f5f5f5')]),
+    ]))
+    story.append(t2)
+    story.append(Spacer(1, 8))
+
+    story.append(Paragraph("4.4 Saúde Financeira & Valuation", estilo_h2))
+    divida = info.get("totalDebt", None)
+    ebitda_v = info.get("ebitda", None)
+    cr = info.get("currentRatio", None)
+    de = info.get("debtToEquity", None)
+    div_yield = info.get("dividendYield", None)
+    payout = info.get("payoutRatio", None)
+    pe = info.get("trailingPE", None)
+    ps = info.get("priceToSalesTrailing12Months", None)
+    pb = info.get("priceToBook", None)
+    ev_ebitda = info.get("enterpriseToEbitda", None)
+    dados_saude = [
+        ["Métrica", "Valor"],
+        ["DEBT/EBITDA", f"{divida/ebitda_v:.1f}x" if divida and ebitda_v else "N/D"],
+        ["Current Ratio", f"{cr:.2f}" if cr else "N/D"],
+        ["DEBT/EQUITY", f"{de:.1f}" if de else "N/D"],
+        ["Dívida Total", f"${divida/1e9:.1f}B" if divida else "N/D"],
+        ["Dividend Yield", f"{div_yield*100:.2f}%" if div_yield else "N/D"],
+        ["Payout Ratio", f"{payout*100:.1f}%" if payout else "N/D"],
+        ["P/E Ratio", f"{pe:.1f}" if pe else "N/D"],
+        ["P/S Ratio", f"{ps:.1f}" if ps else "N/D"],
+        ["P/B Ratio", f"{pb:.1f}" if pb else "N/D"],
+        ["EV/EBITDA", f"{ev_ebitda:.1f}" if ev_ebitda else "N/D"],
+    ]
+    t3 = Table(dados_saude, colWidths=[9*cm, 7*cm])
+    t3.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1f77b4')),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('FONTSIZE', (0,0), (-1,-1), 9),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.lightgrey),
+        ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#f5f5f5')]),
+    ]))
+    story.append(t3)
+    story.append(HRFlowable(width="100%", thickness=0.5, color=colors.lightgrey, spaceAfter=6))
+
+    story.append(Paragraph("5. Valor Intrínseco", estilo_h1))
+    preco_atual = info.get("currentPrice", None)
+    eps = info.get("trailingEps", None)
+    peg = info.get("pegRatio", None)
+    campo("Preço Atual", f"${preco_atual:.2f}" if preco_atual else "N/D")
+    campo("EPS", f"${eps:.2f}" if eps else "N/D")
+    campo("PEG Ratio", f"{peg:.2f}" if peg else "N/D")
+    campo("Valor Intrínseco Estimado", f"${dados_formulario.get('valor_intriseco', 0):.2f}")
+    campo("Margem de Segurança", dados_formulario.get("margem_seguranca", "N/D"))
+    story.append(HRFlowable(width="100%", thickness=0.5, color=colors.lightgrey, spaceAfter=6))
+
+    story.append(Paragraph("6. Conclusão Final", estilo_h1))
+    campo("Data da análise", str(dados_formulario.get("data_analise", "")))
+    campo("Motivo de compra", dados_formulario.get("motivo_compra"))
+    campo("Período", dados_formulario.get("periodo"))
+    campo("Critérios a manter", dados_formulario.get("criterios"))
+    campo("Quando vender", dados_formulario.get("quando_vendo"))
+    decisao_val = dados_formulario.get("decisao", "")
+    cor_decisao = colors.green if "Comprar" in decisao_val else (colors.orange if "Aguardar" in decisao_val else colors.red)
+    estilo_decisao = ParagraphStyle('Decisao', parent=styles['Normal'], fontSize=12, textColor=cor_decisao, spaceBefore=8)
+    story.append(Paragraph(f"<b>Decisão Final: {decisao_val}</b>", estilo_decisao))
+
+    doc.build(story)
+    buffer.seek(0)
+    return buffer
+
+
+# ✅ NOVO: Função do botão de download
+def botao_pdf():
+    figuras = [
+        st.session_state.get('fig_receita'),
+        st.session_state.get('fig_cf'),
+        st.session_state.get('fig_ebitda'),
+        st.session_state.get('fig_shares'),
+    ]
+    dados = {
+        "tendencia": st.session_state.get("tendencia", ""),
+        "sentimento": st.session_state.get("sentimento", ""),
+        "sit_pais": st.session_state.get("sit_pais", ""),
+        "estabilidade": st.session_state.get("estabilidade", ""),
+        "pib_emprego": st.session_state.get("pib_emprego", ""),
+        "o_que_vende": st.session_state.get("o_que_vende", ""),
+        "onde_opera": st.session_state.get("onde_opera", ""),
+        "como_ganha": st.session_state.get("como_ganha", ""),
+        "lider": st.session_state.get("lider", ""),
+        "moat": st.session_state.get("moat", ""),
+        "moat_desc": st.session_state.get("moat_desc", ""),
+        "lideranca": st.session_state.get("lideranca", ""),
+        "visao": st.session_state.get("visao", ""),
+        "acoes_empresa": st.session_state.get("acoes_empresa", ""),
+        "riscos": st.session_state.get("riscos", ""),
+        "notas_receita": st.session_state.get("notas_receita", ""),
+        "notas_cf": st.session_state.get("notas_cf", ""),
+        "notas_ebitda": st.session_state.get("notas_ebitda", ""),
+        "notas_shares": st.session_state.get("notas_shares", ""),
+        "ccc": st.session_state.get("ccc_valor", "N/D"),
+        "roic": st.session_state.get("roic_valor", "N/D"),
+        "valor_intriseco": st.session_state.get("valor_intriseco", 0),
+        "margem_seguranca": st.session_state.get("margem_seguranca", "N/D"),
+        "data_analise": st.session_state.get("data_analise", ""),
+        "motivo_compra": st.session_state.get("motivo_compra", ""),
+        "periodo": st.session_state.get("periodo", ""),
+        "criterios": st.session_state.get("criterios", ""),
+        "quando_vendo": st.session_state.get("quando_vendo", ""),
+        "decisao": st.session_state.get("decisao", ""),
+    }
+    pdf_buffer = gerar_pdf(ticker, info, dados, figuras)
+    st.download_button(
+        label="📄 Exportar Análise para PDF",
+        data=pdf_buffer,
+        file_name=f"analise_{ticker.upper()}.pdf",
+        mime="application/pdf",
+        use_container_width=True,
+        key=f"pdf_btn_{id(dados)}"
+    )
+    
 # --- TRUQUE DE MESTRE: CACHE ---
 @st.cache_data(ttl=3600)
 def obter_dados_alpha_vantage(ticker_symbol, api_key):
@@ -56,9 +286,12 @@ if ticker:
         nome = info.get("longName", "N/D")
         st.subheader(f"{nome} ({ticker.upper()})")
         st.caption(f"Setor: {info.get('sector', 'N/D')} | Indústria: {info.get('industry', 'N/D')} | País: {info.get('country', 'N/D')}")
-
+        
+        # ✅ NOVO: Botão PDF no topo
+        botao_pdf()
+        
         st.divider()
-
+              
         # ── 1. MACRO E SETORIAL ──────────────────────────────────────────────
         st.header("1. Macro e Setorial")
         
@@ -67,23 +300,21 @@ if ticker:
         
         with col1:
             st.write("Tendência do índice")
-            tendencia = st.selectbox("Qual a tendência do mercado/índice?", ["Preencher", "Bull", "Bear", "Lateral"])
-        
+            tendencia = st.selectbox("Qual a tendência do mercado/índice?", ["Preencher", "Bull", "Bear", "Lateral"], key="tendencia")
         with col2:
             st.write("Sentimento Mundial")
-            sentimento = st.selectbox("Qual é a saúde económica global?", ["Preencher", "Bull", "Bear", "Lateral"])
-            
+           sentimento = st.selectbox("Qual é a saúde económica global?", ["Preencher", "Bull", "Bear", "Lateral"], key="sentimento")            
         with col3:
             st.write("País")
-            sit_pais = st.selectbox("Situação económica do país/região?", ["Preencher", "Expansão", "Pico/ Auge", "Recessão", "Recuperação"])
+           sit_pais = st.selectbox("Situação económica do país/região?", ["Preencher", "Expansão", "Pico/ Auge", "Recessão", "Recuperação"], key="sit_pais")
             
         with col4:
             st.markdown("&nbsp;")
-            estabilidade = st.selectbox("É estável, transparente e estimulada?", ["Preencher", "Sim", "Não"])
+            estabilidade = st.selectbox("É estável, transparente e estimulada?", ["Preencher", "Sim", "Não"], key="estabilidade")
             
         with col5:
             st.markdown("&nbsp;")
-            pib_emprego = st.selectbox("PIB e mercado de trabalho?", ["Preencher", "Bom", "Moderado", "Mau"])
+            pib_emprego = st.selectbox("PIB e mercado de trabalho?", ["Preencher", "Bom", "Moderado", "Mau"], key="pib_emprego")
 
         st.divider()
 
@@ -97,17 +328,15 @@ if ticker:
 
         col1, col2 = st.columns(2)
         with col1:
-            o_que_vende = st.text_area("O que vende?", placeholder="Explicar numa frase curta")
-            onde_opera = st.text_input("Onde opera?", placeholder="Explicar numa frase curta")
+            o_que_vende = st.text_area("O que vende?", placeholder="Explicar numa frase curta", key="o_que_vende")
+            onde_opera = st.text_input("Onde opera?", placeholder="Explicar numa frase curta", key="onde_opera")
         with col2:
-            como_ganha = st.text_area("Como ganha dinheiro?", placeholder="Explicar numa frase curta")
-            lider = st.selectbox("É líder de mercado?", ["Preencher", "Sim", "Não"])
-
-            # Alinhamento corrigido (as condições ficam dentro da coluna 2)
+            como_ganha = st.text_area("Como ganha dinheiro?", placeholder="Explicar numa frase curta", key="como_ganha")
+            lider = st.selectbox("É líder de mercado?", ["Preencher", "Sim", "Não"], key="lider")
             if lider == "Sim":
-                qual_lider = st.text_input("Qual?", placeholder="Indicar qual o mercado")
+                qual_lider = st.text_input("Qual?", placeholder="Indicar qual o mercado", key="qual_lider")
             elif lider == "Não":
-                quem_lider = st.text_input("Qual é?", placeholder="Indicar o ticker da concorrente")
+                quem_lider = st.text_input("Qual é?", placeholder="Indicar o ticker da concorrente", key="quem_lider")
 
         st.divider()
 
@@ -117,16 +346,14 @@ if ticker:
         col1, col2 = st.columns(2)
         with col1:
             # Corrigido o erro do parêntesis a mais
-            moat = st.selectbox("Tem MOAT?", ["Preencher", "Sim", "Não"])
-            
+            moat = st.selectbox("Tem MOAT?", ["Preencher", "Sim", "Não"], key="moat")
             if moat == "Sim":
-                moat_desc = st.text_area("Descreve o MOAT:", placeholder="Tem uma marca forte? Tem custos de mudança altos? Possui efeitos de rede? (melhora com mais utilizadores)")
-            
-            lideranca = st.text_area("Liderança (CEO, diretores):")
+                moat_desc = st.text_area("Descreve o MOAT:", placeholder="Tem uma marca forte?...", key="moat_desc")
+            lideranca = st.text_area("Liderança (CEO, diretores):", key="lideranca")
         with col2:
-            visao = st.text_area("Visão estratégica da gestão:")
-            acoes_empresa = st.selectbox("Ações da empresa (buybacks?)", ["Sim - reduz ações", "Não", "Dilui acionistas"])
-            riscos = st.text_area("Riscos identificados:")
+            visao = st.text_area("Visão estratégica da gestão:", key="visao")
+            acoes_empresa = st.selectbox("Ações da empresa (buybacks?)", ["Sim - reduz ações", "Não", "Dilui acionistas"], key="acoes_empresa")
+            riscos = st.text_area("Riscos identificados:", key="riscos")
 
         st.divider()
 
@@ -181,7 +408,7 @@ if ticker:
                         
                         fig_res.update_layout(title="Receita vs Lucro Líquido", barmode='group', template='plotly_dark', height=400, margin=dict(t=50, b=20), yaxis_title="Biliões de USD ($B)", yaxis_title_font_size=16, bargap=0.1)
                         st.plotly_chart(fig_res, use_container_width=True)
-
+                        st.session_state['fig_receita_lucro'] = fig_res_luc
                         st.text_area("📝 Notas — Receita vs Lucro", placeholder="Observações sobre receita e lucro líquido...", height=100, key="notas_receita")
 
                     with col_g2:
@@ -194,6 +421,7 @@ if ticker:
                         fig_cf.update_layout(title="Cash From Operations (CFO) vs Free Cash Flow (FCF)", barmode='group', template='plotly_dark', height=400, margin=dict(t=50, b=20), yaxis_title="Biliões de USD ($B)", yaxis_title_font_size=16, bargap=0.1)
                         st.plotly_chart(fig_cf, use_container_width=True)
 
+                        st.session_state['fig_cfo_fcf'] = fig_cfo_fcf
                         st.text_area("📝 Notas — CFO vs FCF", placeholder="Observações sobre cash flow operacional e free cash flow...", height=100, key="notas_cf")
 
                     with col_g3:
@@ -204,6 +432,7 @@ if ticker:
                         fig_ebitda.update_layout(title="EBITDA", template='plotly_dark', height=280, margin=dict(t=50, b=20), yaxis_title="Biliões de USD ($B)", yaxis_title_font_size=16, bargap=0.6)
                         st.plotly_chart(fig_ebitda, use_container_width=True)
 
+                        st.session_state['fig_ebitda'] = fig_ebitda
                         st.text_area("📝 Notas — EBITDA", placeholder="Observações sobre o EBITDA...", height=100, key="notas_ebitda")
 
                 else:
@@ -240,6 +469,7 @@ if ticker:
                     )
                     fig_shares.update_yaxes(range=[min_y, max_y])
                     st.plotly_chart(fig_shares, use_container_width=True)
+                    st.session_state['fig_shares'] = fig_shares
                     st.text_area("📝 Notas — Ações em Circulação", placeholder="Observações sobre buybacks ou diluição...", height=100, key="notas_shares")
                 else:
                     st.info("Não foi possível encontrar o histórico de 'Ordinary Shares Number' para esta empresa.")
@@ -273,6 +503,7 @@ if ticker:
                 dpo = (payables / cogs) * 365
                 ccc = dio + dso - dpo
                 col3.metric("Cash Conv. Cycle (CCC)", f"{int(ccc)} dias")
+                st.session_state['ccc_valor'] = f"{int(ccc)} dias"
             else:
                 col3.metric("Cash Conv. Cycle (CCC)", "N/D")
         except:
@@ -309,6 +540,7 @@ if ticker:
             
             roic_val = (nopat / invested_capital) * 100
             col5.metric("ROIC", f"{roic_val:.1f}%")
+            st.session_state['roic_valor'] = f"{roic_val:.1f}%"
         except:
             col5.metric("ROIC", "N/D")
 
@@ -434,27 +666,28 @@ if ticker:
 
         col1, col2 = st.columns(2)
         with col1:
-            valor_intriseco = st.number_input("Valor Intrínseco Estimado ($)", min_value=0.0, step=0.5)
+            valor_intriseco = st.number_input("Valor Intrínseco Estimado ($)", min_value=0.0, step=0.5, key="valor_intriseco")
         with col2:
             if valor_intriseco > 0 and preco_atual:
                 margem = ((valor_intriseco - preco_atual) / valor_intriseco) * 100
                 col2.metric("Margem de Segurança", f"{margem:.1f}%",
                            delta="Subvalorizada" if margem > 0 else "Sobrevalorizada")
+               st.session_state['margem_seguranca'] = f"{margem:.1f}%"
 
-        st.divider()
+      st.divider()
 
         # ── 6. CONCLUSÃO FINAL ───────────────────────────────────────────────
         st.header("6. Conclusão Final")
 
         col1, col2 = st.columns(2)
         with col1:
-            data_analise = st.date_input("Data da análise")
-            motivo_compra = st.text_area("Motivo principal da compra:")
-            periodo = st.selectbox("Período de investimento", ["Curto prazo (<1 ano)", "Médio prazo (1-3 anos)", "Longo prazo (>3 anos)"])
+             data_analise = st.date_input("Data da análise", key="data_analise")
+            motivo_compra = st.text_area("Motivo principal da compra:", key="motivo_compra")
+            periodo = st.selectbox("Período de investimento", ["Curto prazo (<1 ano)", "Médio prazo (1-3 anos)", "Longo prazo (>3 anos)"], key="periodo")
         with col2:
-            criterios = st.text_area("Critérios que devem manter-se:")
-            quando_vendo = st.text_area("Quando é que vendo?")
-            decisao = st.selectbox("Decisão final", ["✅ Comprar", "⏳ Aguardar", "❌ Não comprar"])
+            criterios = st.text_area("Critérios que devem manter-se:", key="criterios")
+            quando_vendo = st.text_area("Quando é que vendo?", key="quando_vendo")
+            decisao = st.selectbox("Decisão final", ["✅ Comprar", "⏳ Aguardar", "❌ Não comprar"], key="decisao")
 
         if decisao == "✅ Comprar":
             st.success(f"Decisão: COMPRAR {ticker.upper()}")
@@ -462,3 +695,5 @@ if ticker:
             st.warning(f"Decisão: AGUARDAR — monitorizar {ticker.upper()}")
         else:
             st.error(f"Decisão: NÃO COMPRAR {ticker.upper()}")
+            
+        botao_pdf()
