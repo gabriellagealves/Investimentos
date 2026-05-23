@@ -194,6 +194,8 @@ if ticker:
                         fig_cf.update_layout(title="Cash From Operations (CFO) vs Free Cash Flow (FCF)", barmode='group', template='plotly_dark', height=400, margin=dict(t=50, b=20), yaxis_title="Biliões de USD ($B)", yaxis_title_font_size=16, bargap=0.1)
                         st.plotly_chart(fig_cf, use_container_width=True)
 
+                        st.text_area("📝 Notas — CFO vs FCF", placeholder="Observações sobre cash flow operacional e free cash flow...", height=100, key="notas_cf")
+
                     with col_g3:
                         fig_ebitda = go.Figure()
                         fig_ebitda.add_trace(go.Bar(x=anos_fin, y=ebitda_hist, name='EBITDA', marker_color='#00CC96', text=ebitda_hist.apply(lambda x: f"{x:.1f}"), textposition='auto', textfont=dict(color='white'))) 
@@ -201,6 +203,8 @@ if ticker:
                         
                         fig_ebitda.update_layout(title="EBITDA", template='plotly_dark', height=280, margin=dict(t=50, b=20), yaxis_title="Biliões de USD ($B)", yaxis_title_font_size=16, bargap=0.6)
                         st.plotly_chart(fig_ebitda, use_container_width=True)
+
+                        st.text_area("📝 Notas — EBITDA", placeholder="Observações sobre o EBITDA...", height=100, key="notas_ebitda")
 
                 else:
                     if "annualReports" not in is_data:
@@ -238,6 +242,7 @@ if ticker:
                     st.plotly_chart(fig_shares, use_container_width=True)
                 else:
                     st.info("Não foi possível encontrar o histórico de 'Ordinary Shares Number' para esta empresa.")
+                    st.text_area("📝 Notas — Ações em Circulação", placeholder="Observações sobre buybacks ou diluição...", height=100, key="notas_shares")
             except Exception as e:
                 st.warning(f"Erro ao desenhar o gráfico de ações: {e}")
 
