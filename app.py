@@ -182,6 +182,8 @@ if ticker:
                         fig_res.update_layout(title="Receita vs Lucro Líquido", barmode='group', template='plotly_dark', height=400, margin=dict(t=50, b=20), yaxis_title="Biliões de USD ($B)", yaxis_title_font_size=16, bargap=0.1)
                         st.plotly_chart(fig_res, use_container_width=True)
 
+                        st.text_area("📝 Notas — Receita vs Lucro", placeholder="Observações sobre receita e lucro líquido...", height=100, key="notas_receita")
+
                     with col_g2:
                         fig_cf = go.Figure()
                         fig_cf.add_trace(go.Bar(x=anos_cf, y=cfo_hist, name='CFO', marker_color='#FF9F1C', text=cfo_hist.apply(lambda x: f"{x:.1f}"), textposition='auto', textfont=dict(color='white')))
