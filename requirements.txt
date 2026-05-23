@@ -4,3 +4,5 @@ yfinance
 pandas
 openpyxl
 requests
+reportlab
+kaleido
