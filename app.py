@@ -1,10 +1,10 @@
-import streamlit as st
+            import streamlit as st
 import yfinance as yf
 import pandas as pd
 import plotly.graph_objects as go
 import requests
 import time
-#Gerar PDF
+# Gerar PDF
 import io
 from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Table, TableStyle, HRFlowable
@@ -26,14 +26,14 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# ✅ NOVO: Função para gerar o PDF
+# ✅ Função para gerar o PDF
 def gerar_pdf(ticker, info, dados_formulario, figuras):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4,
                             rightMargin=2*cm, leftMargin=2*cm,
                             topMargin=2*cm, bottomMargin=2*cm)
     styles = getSampleStyleSheet()
-    
+
     estilo_titulo = ParagraphStyle('Titulo', parent=styles['Title'], fontSize=18, spaceAfter=6)
     estilo_h1 = ParagraphStyle('H1', parent=styles['Heading1'], fontSize=14, spaceBefore=12, spaceAfter=6, textColor=colors.HexColor('#1f77b4'))
     estilo_h2 = ParagraphStyle('H2', parent=styles['Heading2'], fontSize=11, spaceBefore=8, spaceAfter=4)
@@ -82,17 +82,21 @@ def gerar_pdf(ticker, info, dados_formulario, figuras):
     story.append(Paragraph("4. Quantitativa", estilo_h1))
     story.append(Paragraph("4.1 Evolução: Financeira e Acionária", estilo_h2))
 
+    # ✅ ALTERADO: substituído fig.to_image (kaleido) por notas de texto
+    nomes_graficos = ["Receita vs Lucro Líquido", "CFO vs FCF", "EBITDA", "Ações em Circulação"]
     chaves_notas = ["notas_receita", "notas_cf", "notas_ebitda", "notas_shares"]
+    estilo_grafico = ParagraphStyle('Grafico', parent=styles['Normal'], fontSize=9,
+                                    textColor=colors.HexColor('#1f77b4'),
+                                    borderColor=colors.HexColor('#1f77b4'),
+                                    borderWidth=1, borderPadding=8,
+                                    spaceAfter=4)
     for i, fig in enumerate(figuras):
         if fig is not None:
-            img_bytes = fig.to_image(format="png", width=700, height=300, scale=2)
-            img_buffer = io.BytesIO(img_bytes)
-            img = Image(img_buffer, width=16*cm, height=7*cm)
-            story.append(img)
-            nota = dados_formulario.get(chaves_notas[i], "")
-            if nota and nota.strip():
-                story.append(Paragraph(f"<i>Notas: {nota}</i>", estilo_label))
-            story.append(Spacer(1, 8))
+            story.append(Paragraph(f"📊 Gráfico disponível na app: <b>{nomes_graficos[i]}</b>", estilo_grafico))
+        nota = dados_formulario.get(chaves_notas[i], "")
+        if nota and nota.strip():
+            story.append(Paragraph(f"<i>Notas: {nota}</i>", estilo_label))
+        story.append(Spacer(1, 8))
 
     story.append(Paragraph("4.2 Métricas de Crescimento e Eficiência", estilo_h2))
     cres_rec = info.get("revenueGrowth", None)
@@ -200,11 +204,11 @@ def gerar_pdf(ticker, info, dados_formulario, figuras):
     return buffer
 
 
-# ✅ NOVO: Função do botão de download
+# ✅ Função do botão de download
 def botao_pdf():
     figuras = [
-        st.session_state.get('fig_receita'),
-        st.session_state.get('fig_cf'),
+        st.session_state.get('fig_receita_lucro'),  # ✅ ALTERADO
+        st.session_state.get('fig_cfo_fcf'),         # ✅ ALTERADO
         st.session_state.get('fig_ebitda'),
         st.session_state.get('fig_shares'),
     ]
@@ -248,18 +252,15 @@ def botao_pdf():
         use_container_width=True,
         key=f"pdf_btn_{id(dados)}"
     )
-    
+
 # --- TRUQUE DE MESTRE: CACHE ---
 @st.cache_data(ttl=3600)
 def obter_dados_alpha_vantage(ticker_symbol, api_key):
     url_is = f"https://www.alphavantage.co/query?function=INCOME_STATEMENT&symbol={ticker_symbol}&apikey={api_key}"
     res_is = requests.get(url_is).json()
-    
     time.sleep(2) # Pausa obrigatória de 2 segundos
-    
     url_cf = f"https://www.alphavantage.co/query?function=CASH_FLOW&symbol={ticker_symbol}&apikey={api_key}"
     res_cf = requests.get(url_cf).json()
-    
     return res_is, res_cf
 
 # --- BARRA LATERAL PARA A API KEY ---
@@ -278,7 +279,7 @@ if ticker:
     with st.spinner('A processar dados...'):
         acao = yf.Ticker(ticker)
         info = acao.info
-        
+
         # Puxar tabelas do yfinance para os cálculos manuais
         bs = acao.balance_sheet
         fin = acao.financials
@@ -286,32 +287,30 @@ if ticker:
         nome = info.get("longName", "N/D")
         st.subheader(f"{nome} ({ticker.upper()})")
         st.caption(f"Setor: {info.get('sector', 'N/D')} | Indústria: {info.get('industry', 'N/D')} | País: {info.get('country', 'N/D')}")
-        
-        # ✅ NOVO: Botão PDF no topo
+
+        # ✅ Botão PDF no topo
         botao_pdf()
-        
+
         st.divider()
-              
+
         # ── 1. MACRO E SETORIAL ──────────────────────────────────────────────
         st.header("1. Macro e Setorial")
-        
+
         # Criamos 5 colunas para manter tudo na mesma linha
         col1, col2, col3, col4, col5 = st.columns(5)
-        
+
         with col1:
             st.write("Tendência do índice")
             tendencia = st.selectbox("Qual a tendência do mercado/índice?", ["Preencher", "Bull", "Bear", "Lateral"], key="tendencia")
         with col2:
             st.write("Sentimento Mundial")
-            sentimento = st.selectbox("Qual é a saúde económica global?", ["Preencher", "Bull", "Bear", "Lateral"], key="sentimento")            
+            sentimento = st.selectbox("Qual é a saúde económica global?", ["Preencher", "Bull", "Bear", "Lateral"], key="sentimento")
         with col3:
             st.write("País")
             sit_pais = st.selectbox("Situação económica do país/região?", ["Preencher", "Expansão", "Pico/ Auge", "Recessão", "Recuperação"], key="sit_pais")
-            
         with col4:
             st.markdown("&nbsp;")
             estabilidade = st.selectbox("É estável, transparente e estimulada?", ["Preencher", "Sim", "Não"], key="estabilidade")
-            
         with col5:
             st.markdown("&nbsp;")
             pib_emprego = st.selectbox("PIB e mercado de trabalho?", ["Preencher", "Bom", "Moderado", "Mau"], key="pib_emprego")
@@ -378,7 +377,7 @@ if ticker:
 
                     df_is['fiscalDateEnding'] = pd.to_datetime(df_is['fiscalDateEnding']).dt.year.astype(str)
                     df_is = df_is.iloc[::-1].reset_index(drop=True)
-                    
+
                     df_cf['fiscalDateEnding'] = pd.to_datetime(df_cf['fiscalDateEnding']).dt.year.astype(str)
                     df_cf = df_cf.iloc[::-1].reset_index(drop=True)
 
@@ -391,7 +390,7 @@ if ticker:
 
                     cfo_hist = pd.to_numeric(df_cf['operatingCashflow'], errors='coerce').fillna(0) / 1e9
                     capex_hist = pd.to_numeric(df_cf['capitalExpenditures'], errors='coerce').fillna(0) / 1e9
-                    fcf_hist = cfo_hist - capex_hist 
+                    fcf_hist = cfo_hist - capex_hist
 
                     ttm_rev = info.get("totalRevenue", 0) / 1e9
                     ttm_net = info.get("netIncomeToCommon", 0) / 1e9
@@ -400,38 +399,35 @@ if ticker:
                     ttm_fcf = info.get("freeCashflow", 0) / 1e9
 
                     with col_g1:
+                        # ✅ ALTERADO: nome da variável corrigido para fig_res_luc em todas as linhas
                         fig_res_luc = go.Figure()
-                        fig_res.add_trace(go.Bar(x=anos_fin, y=rev_hist, name='Receita', marker_color='#1f77b4', text=rev_hist.apply(lambda x: f"{x:.1f}"), textposition='auto', textfont=dict(color='white')))
-                        fig_res.add_trace(go.Bar(x=anos_fin, y=net_hist, name='Lucro Líquido', marker_color='#FFD700', text=net_hist.apply(lambda x: f"{x:.1f}"), textposition='auto', textfont=dict(color='white')))
-                        fig_res.add_trace(go.Bar(x=['TTM'], y=[ttm_rev], name='Receita (TTM)', marker_color='#1f77b4', opacity=0.6, showlegend=False, text=[f"{ttm_rev:.1f}"], textposition='auto', textfont=dict(color='white')))
-                        fig_res.add_trace(go.Bar(x=['TTM'], y=[ttm_net], name='Lucro (TTM)', marker_color='#FFD700', opacity=0.6, showlegend=False, text=[f"{ttm_net:.1f}"], textposition='auto', textfont=dict(color='white')))
-                        
-                        fig_res.update_layout(title="Receita vs Lucro Líquido", barmode='group', template='plotly_dark', height=400, margin=dict(t=50, b=20), yaxis_title="Biliões de USD ($B)", yaxis_title_font_size=16, bargap=0.1)
-                        st.plotly_chart(fig_res, use_container_width=True)
+                        fig_res_luc.add_trace(go.Bar(x=anos_fin, y=rev_hist, name='Receita', marker_color='#1f77b4', text=rev_hist.apply(lambda x: f"{x:.1f}"), textposition='auto', textfont=dict(color='white')))
+                        fig_res_luc.add_trace(go.Bar(x=anos_fin, y=net_hist, name='Lucro Líquido', marker_color='#FFD700', text=net_hist.apply(lambda x: f"{x:.1f}"), textposition='auto', textfont=dict(color='white')))
+                        fig_res_luc.add_trace(go.Bar(x=['TTM'], y=[ttm_rev], name='Receita (TTM)', marker_color='#1f77b4', opacity=0.6, showlegend=False, text=[f"{ttm_rev:.1f}"], textposition='auto', textfont=dict(color='white')))
+                        fig_res_luc.add_trace(go.Bar(x=['TTM'], y=[ttm_net], name='Lucro (TTM)', marker_color='#FFD700', opacity=0.6, showlegend=False, text=[f"{ttm_net:.1f}"], textposition='auto', textfont=dict(color='white')))
+                        fig_res_luc.update_layout(title="Receita vs Lucro Líquido", barmode='group', template='plotly_dark', height=400, margin=dict(t=50, b=20), yaxis_title="Biliões de USD ($B)", yaxis_title_font_size=16, bargap=0.1)
+                        st.plotly_chart(fig_res_luc, use_container_width=True)
                         st.session_state['fig_receita_lucro'] = fig_res_luc
                         st.text_area("📝 Notas — Receita vs Lucro", placeholder="Observações sobre receita e lucro líquido...", height=100, key="notas_receita")
 
                     with col_g2:
+                        # ✅ ALTERADO: nome da variável corrigido para fig_cfo_fcf em todas as linhas
                         fig_cfo_fcf = go.Figure()
-                        fig_cf.add_trace(go.Bar(x=anos_cf, y=cfo_hist, name='CFO', marker_color='#FF9F1C', text=cfo_hist.apply(lambda x: f"{x:.1f}"), textposition='auto', textfont=dict(color='white')))
-                        fig_cf.add_trace(go.Bar(x=anos_cf, y=fcf_hist, name='FCF', marker_color='#2EC4B6', text=fcf_hist.apply(lambda x: f"{x:.1f}"), textposition='auto', textfont=dict(color='white')))
-                        fig_cf.add_trace(go.Bar(x=['TTM'], y=[ttm_cfo], name='CFO (TTM)', marker_color='#FF9F1C', opacity=0.6, showlegend=False, text=[f"{ttm_cfo:.1f}"], textposition='auto', textfont=dict(color='white')))
-                        fig_cf.add_trace(go.Bar(x=['TTM'], y=[ttm_fcf], name='FCF (TTM)', marker_color='#2EC4B6', opacity=0.6, showlegend=False, text=[f"{ttm_fcf:.1f}"], textposition='auto', textfont=dict(color='white')))
-                        
-                        fig_cf.update_layout(title="Cash From Operations (CFO) vs Free Cash Flow (FCF)", barmode='group', template='plotly_dark', height=400, margin=dict(t=50, b=20), yaxis_title="Biliões de USD ($B)", yaxis_title_font_size=16, bargap=0.1)
-                        st.plotly_chart(fig_cf, use_container_width=True)
-
+                        fig_cfo_fcf.add_trace(go.Bar(x=anos_cf, y=cfo_hist, name='CFO', marker_color='#FF9F1C', text=cfo_hist.apply(lambda x: f"{x:.1f}"), textposition='auto', textfont=dict(color='white')))
+                        fig_cfo_fcf.add_trace(go.Bar(x=anos_cf, y=fcf_hist, name='FCF', marker_color='#2EC4B6', text=fcf_hist.apply(lambda x: f"{x:.1f}"), textposition='auto', textfont=dict(color='white')))
+                        fig_cfo_fcf.add_trace(go.Bar(x=['TTM'], y=[ttm_cfo], name='CFO (TTM)', marker_color='#FF9F1C', opacity=0.6, showlegend=False, text=[f"{ttm_cfo:.1f}"], textposition='auto', textfont=dict(color='white')))
+                        fig_cfo_fcf.add_trace(go.Bar(x=['TTM'], y=[ttm_fcf], name='FCF (TTM)', marker_color='#2EC4B6', opacity=0.6, showlegend=False, text=[f"{ttm_fcf:.1f}"], textposition='auto', textfont=dict(color='white')))
+                        fig_cfo_fcf.update_layout(title="Cash From Operations (CFO) vs Free Cash Flow (FCF)", barmode='group', template='plotly_dark', height=400, margin=dict(t=50, b=20), yaxis_title="Biliões de USD ($B)", yaxis_title_font_size=16, bargap=0.1)
+                        st.plotly_chart(fig_cfo_fcf, use_container_width=True)
                         st.session_state['fig_cfo_fcf'] = fig_cfo_fcf
                         st.text_area("📝 Notas — CFO vs FCF", placeholder="Observações sobre cash flow operacional e free cash flow...", height=100, key="notas_cf")
 
                     with col_g3:
                         fig_ebitda = go.Figure()
-                        fig_ebitda.add_trace(go.Bar(x=anos_fin, y=ebitda_hist, name='EBITDA', marker_color='#00CC96', text=ebitda_hist.apply(lambda x: f"{x:.1f}"), textposition='auto', textfont=dict(color='white'))) 
+                        fig_ebitda.add_trace(go.Bar(x=anos_fin, y=ebitda_hist, name='EBITDA', marker_color='#00CC96', text=ebitda_hist.apply(lambda x: f"{x:.1f}"), textposition='auto', textfont=dict(color='white')))
                         fig_ebitda.add_trace(go.Bar(x=['TTM'], y=[ttm_ebitda], name='EBITDA (TTM)', marker_color='#00CC96', opacity=0.6, showlegend=False, text=[f"{ttm_ebitda:.1f}"], textposition='auto', textfont=dict(color='white')))
-                        
                         fig_ebitda.update_layout(title="EBITDA", template='plotly_dark', height=280, margin=dict(t=50, b=20), yaxis_title="Biliões de USD ($B)", yaxis_title_font_size=16, bargap=0.6)
                         st.plotly_chart(fig_ebitda, use_container_width=True)
-
                         st.session_state['fig_ebitda'] = fig_ebitda
                         st.text_area("📝 Notas — EBITDA", placeholder="Observações sobre o EBITDA...", height=100, key="notas_ebitda")
 
@@ -462,7 +458,6 @@ if ticker:
                         x=anos_shares, y=val_shares, marker_color='#8E44AD', name='Shares',
                         text=[f"{v:.0f}" for v in val_shares], textposition='auto', textfont=dict(color='white')
                     ))
-                    
                     fig_shares.update_layout(
                         title="Ordinary Shares Number", template='plotly_dark', height=280, margin=dict(t=50, b=20),
                         yaxis_title="Milhões (M)", yaxis_title_font_size=16, bargap=0.6
@@ -475,27 +470,27 @@ if ticker:
                     st.info("Não foi possível encontrar o histórico de 'Ordinary Shares Number' para esta empresa.")
             except Exception as e:
                 st.warning(f"Erro ao desenhar o gráfico de ações: {e}")
-                
+
         st.divider()
 
         # 4.2 Métricas Atuais de Crescimento e CCC
         st.subheader("4.2 Métricas Atuais de Crescimento e Eficiência")
-        
+
         col1, col2, col3 = st.columns(3)
-        
+
         crescimento_receita = info.get("revenueGrowth", None)
         col1.metric("Crescimento Receita (YoY)", f"{crescimento_receita*100:.1f}%" if crescimento_receita else "N/D")
 
         crescimento_lucro = info.get("earningsGrowth", None)
         col2.metric("Crescimento Lucro (YoY)", f"{crescimento_lucro*100:.1f}%" if crescimento_lucro else "N/D")
 
-        # CÁLCULO MANUAL DO CCC 
+        # CÁLCULO MANUAL DO CCC
         try:
-            inventory = bs.loc['Inventory'].iloc if 'Inventory' in bs.index else 0
-            cogs = abs(fin.loc['Cost Of Revenue'].iloc) if 'Cost Of Revenue' in fin.index else 0
-            receivables = bs.loc['Accounts Receivable'].iloc if 'Accounts Receivable' in bs.index else (bs.loc['Receivables'].iloc if 'Receivables' in bs.index else 0)
-            revenue = fin.loc['Total Revenue'].iloc
-            payables = bs.loc['Accounts Payable'].iloc if 'Accounts Payable' in bs.index else 0
+            inventory = bs.loc['Inventory'].iloc[0] if 'Inventory' in bs.index else 0
+            cogs = abs(fin.loc['Cost Of Revenue'].iloc[0]) if 'Cost Of Revenue' in fin.index else 0
+            receivables = bs.loc['Accounts Receivable'].iloc[0] if 'Accounts Receivable' in bs.index else (bs.loc['Receivables'].iloc[0] if 'Receivables' in bs.index else 0)
+            revenue = fin.loc['Total Revenue'].iloc[0]
+            payables = bs.loc['Accounts Payable'].iloc[0] if 'Accounts Payable' in bs.index else 0
 
             if cogs > 0 and revenue > 0:
                 dio = (inventory / cogs) * 365
@@ -525,19 +520,16 @@ if ticker:
         roe = info.get("returnOnEquity", None)
         col4.metric("ROE (TTM)", f"{roe*100:.1f}%" if roe else "N/D")
 
-        # CÁLCULO MANUAL DO ROIC 
+        # CÁLCULO MANUAL DO ROIC
         try:
-            ebit = fin.loc['EBIT'].iloc
-            tax_provision = fin.loc['Tax Provision'].iloc if 'Tax Provision' in fin.index else 0
-            pretax_income = fin.loc['Pretax Income'].iloc if 'Pretax Income' in fin.index else ebit
-            
+            ebit = fin.loc['EBIT'].iloc[0]
+            tax_provision = fin.loc['Tax Provision'].iloc[0] if 'Tax Provision' in fin.index else 0
+            pretax_income = fin.loc['Pretax Income'].iloc[0] if 'Pretax Income' in fin.index else ebit
             tax_rate = tax_provision / pretax_income if pretax_income > 0 else 0.21
             nopat = ebit * (1 - tax_rate)
-            
-            total_assets = bs.loc['Total Assets'].iloc
-            current_liab = bs.loc['Current Liabilities'].iloc if 'Current Liabilities' in bs.index else 0
+            total_assets = bs.loc['Total Assets'].iloc[0]
+            current_liab = bs.loc['Current Liabilities'].iloc[0] if 'Current Liabilities' in bs.index else 0
             invested_capital = total_assets - current_liab
-            
             roic_val = (nopat / invested_capital) * 100
             col5.metric("ROIC", f"{roic_val:.1f}%")
             st.session_state['roic_valor'] = f"{roic_val:.1f}%"
@@ -555,17 +547,16 @@ if ticker:
                 mb_hist = (gp_m / rev_m * 100).fillna(0)
                 mo_hist = (op_m / rev_m * 100).fillna(0)
                 ml_hist = (ni_m / rev_m * 100).fillna(0)
-                
+
                 anos_margins = df_is['fiscalDateEnding']
 
                 fig_margins = go.Figure()
                 fig_margins.add_trace(go.Bar(x=anos_margins, y=mb_hist, name='Margem Bruta', marker_color='#3498db', text=mb_hist.apply(lambda x: f"{x:.1f}%"), textposition='auto', textfont=dict(color='white')))
                 fig_margins.add_trace(go.Bar(x=anos_margins, y=mo_hist, name='Margem Operacional', marker_color='#e67e22', text=mo_hist.apply(lambda x: f"{x:.1f}%"), textposition='auto', textfont=dict(color='white')))
                 fig_margins.add_trace(go.Bar(x=anos_margins, y=ml_hist, name='Margem Líquida', marker_color='#2ecc71', text=ml_hist.apply(lambda x: f"{x:.1f}%"), textposition='auto', textfont=dict(color='white')))
-
                 fig_margins.update_layout(
-                    title="Evolução Histórica das Margens (Alpha Vantage)", 
-                    barmode='group', template='plotly_dark', height=400, margin=dict(t=50, b=20), 
+                    title="Evolução Histórica das Margens (Alpha Vantage)",
+                    barmode='group', template='plotly_dark', height=400, margin=dict(t=50, b=20),
                     yaxis_title="Percentagem (%)", yaxis_title_font_size=16
                 )
                 st.plotly_chart(fig_margins, use_container_width=True)
@@ -590,9 +581,8 @@ if ticker:
 
         # CÁLCULO MANUAL DO INTEREST COVERAGE RATIO
         try:
-            ebit_val = fin.loc['EBIT'].iloc
-            interest_exp = abs(fin.loc['Interest Expense'].iloc) if 'Interest Expense' in fin.index else 0
-            
+            ebit_val = fin.loc['EBIT'].iloc[0]
+            interest_exp = abs(fin.loc['Interest Expense'].iloc[0]) if 'Interest Expense' in fin.index else 0
             if interest_exp > 0:
                 icr_val = ebit_val / interest_exp
                 col2.metric("Interest Coverage Ratio", f"{icr_val:.1f}x")
@@ -617,7 +607,6 @@ if ticker:
 
         de = info.get("debtToEquity", None)
         col1.metric("DEBT / EQUITY", f"{de:.1f}" if de else "N/D")
-
         col2.metric("Dívida Total", f"${divida/1e9:.1f}B" if divida else "N/D")
 
         # 4.6 Dividendos
@@ -671,7 +660,7 @@ if ticker:
             if valor_intriseco > 0 and preco_atual:
                 margem = ((valor_intriseco - preco_atual) / valor_intriseco) * 100
                 col2.metric("Margem de Segurança", f"{margem:.1f}%",
-                           delta="Subvalorizada" if margem > 0 else "Sobrevalorizada")
+                            delta="Subvalorizada" if margem > 0 else "Sobrevalorizada")
                 st.session_state['margem_seguranca'] = f"{margem:.1f}%"
 
         st.divider()
@@ -695,5 +684,6 @@ if ticker:
             st.warning(f"Decisão: AGUARDAR — monitorizar {ticker.upper()}")
         else:
             st.error(f"Decisão: NÃO COMPRAR {ticker.upper()}")
-            
+
+        # ✅ Botão PDF no fim
         botao_pdf()
