@@ -303,10 +303,10 @@ if ticker:
             tendencia = st.selectbox("Qual a tendência do mercado/índice?", ["Preencher", "Bull", "Bear", "Lateral"], key="tendencia")
         with col2:
             st.write("Sentimento Mundial")
-           sentimento = st.selectbox("Qual é a saúde económica global?", ["Preencher", "Bull", "Bear", "Lateral"], key="sentimento")            
+            sentimento = st.selectbox("Qual é a saúde económica global?", ["Preencher", "Bull", "Bear", "Lateral"], key="sentimento")            
         with col3:
             st.write("País")
-           sit_pais = st.selectbox("Situação económica do país/região?", ["Preencher", "Expansão", "Pico/ Auge", "Recessão", "Recuperação"], key="sit_pais")
+            sit_pais = st.selectbox("Situação económica do país/região?", ["Preencher", "Expansão", "Pico/ Auge", "Recessão", "Recuperação"], key="sit_pais")
             
         with col4:
             st.markdown("&nbsp;")
@@ -400,7 +400,7 @@ if ticker:
                     ttm_fcf = info.get("freeCashflow", 0) / 1e9
 
                     with col_g1:
-                        fig_res = go.Figure()
+                        fig_res_luc = go.Figure()
                         fig_res.add_trace(go.Bar(x=anos_fin, y=rev_hist, name='Receita', marker_color='#1f77b4', text=rev_hist.apply(lambda x: f"{x:.1f}"), textposition='auto', textfont=dict(color='white')))
                         fig_res.add_trace(go.Bar(x=anos_fin, y=net_hist, name='Lucro Líquido', marker_color='#FFD700', text=net_hist.apply(lambda x: f"{x:.1f}"), textposition='auto', textfont=dict(color='white')))
                         fig_res.add_trace(go.Bar(x=['TTM'], y=[ttm_rev], name='Receita (TTM)', marker_color='#1f77b4', opacity=0.6, showlegend=False, text=[f"{ttm_rev:.1f}"], textposition='auto', textfont=dict(color='white')))
@@ -412,7 +412,7 @@ if ticker:
                         st.text_area("📝 Notas — Receita vs Lucro", placeholder="Observações sobre receita e lucro líquido...", height=100, key="notas_receita")
 
                     with col_g2:
-                        fig_cf = go.Figure()
+                        fig_cfo_fcf = go.Figure()
                         fig_cf.add_trace(go.Bar(x=anos_cf, y=cfo_hist, name='CFO', marker_color='#FF9F1C', text=cfo_hist.apply(lambda x: f"{x:.1f}"), textposition='auto', textfont=dict(color='white')))
                         fig_cf.add_trace(go.Bar(x=anos_cf, y=fcf_hist, name='FCF', marker_color='#2EC4B6', text=fcf_hist.apply(lambda x: f"{x:.1f}"), textposition='auto', textfont=dict(color='white')))
                         fig_cf.add_trace(go.Bar(x=['TTM'], y=[ttm_cfo], name='CFO (TTM)', marker_color='#FF9F1C', opacity=0.6, showlegend=False, text=[f"{ttm_cfo:.1f}"], textposition='auto', textfont=dict(color='white')))
@@ -672,16 +672,16 @@ if ticker:
                 margem = ((valor_intriseco - preco_atual) / valor_intriseco) * 100
                 col2.metric("Margem de Segurança", f"{margem:.1f}%",
                            delta="Subvalorizada" if margem > 0 else "Sobrevalorizada")
-               st.session_state['margem_seguranca'] = f"{margem:.1f}%"
+                st.session_state['margem_seguranca'] = f"{margem:.1f}%"
 
-      st.divider()
+        st.divider()
 
         # ── 6. CONCLUSÃO FINAL ───────────────────────────────────────────────
         st.header("6. Conclusão Final")
 
         col1, col2 = st.columns(2)
         with col1:
-             data_analise = st.date_input("Data da análise", key="data_analise")
+            data_analise = st.date_input("Data da análise", key="data_analise")
             motivo_compra = st.text_area("Motivo principal da compra:", key="motivo_compra")
             periodo = st.selectbox("Período de investimento", ["Curto prazo (<1 ano)", "Médio prazo (1-3 anos)", "Longo prazo (>3 anos)"], key="periodo")
         with col2:
